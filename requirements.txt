@@ -1,0 +1,6 @@
+--find-links https://download.pytorch.org/whl/cu113/torch_stable.html
+torch==1.10.1+cu113
+stable-baselines3
+git+https://github.com/HumanCompatibleAI/imitation
+git+https://github.com/david-lindner/safe-grid-gym
+moviepy
