@@ -1,6 +1,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,python,direnv
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,python,direnv
 
+### DIRECT ###
+results/
+
 ### direnv ###
 .direnv
 .envrc
