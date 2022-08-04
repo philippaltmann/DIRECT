@@ -27,7 +27,7 @@ class DIRECT(TrainableAlgorithm, PPO):
     self.kappa = kappa; assert kappa > 0
     self.omega = omega; assert 0 < omega < 10
     self.discriminator, self.disc_kwargs = None, disc_kwargs  
-    self._returns, self._history = None, deque(maxlen=100)
+    self._returns, self._history = None, None #deque(maxlen=100)
     super().__init__(**kwargs)
 
   def _setup_model(self) -> None: 
@@ -39,13 +39,17 @@ class DIRECT(TrainableAlgorithm, PPO):
     self.buffer = DirectBuffer(buffer_size=self.kappa, parent=self)
     self.discriminator = Discriminator(chi=self.chi, parent=self, **self.disc_kwargs).to(self.device)
 
-  def _excluded_save_params(self) -> List[str]: #TODO: reload history correct -> no need to delete epinfo
+  def _excluded_save_params(self) -> List[str]:
     return super(DIRECT, self)._excluded_save_params() + ['buffer', '_returns'] 
 
   def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
     torch, vars = super(DIRECT, self)._get_torch_save_params()
     torch.extend(["discriminator", "discriminator.optimizer"])
     return torch, vars
+
+  def learn(self, reset_num_timesteps: bool = True, **kwargs) -> "TrainableAlgorithm":
+    if reset_num_timesteps: self._history = deque(maxlen=100)
+    return super(DIRECT, self).learn(reset_num_timesteps=reset_num_timesteps, **kwargs)
 
   def train(self) -> None:
     discriminator: Discriminator = self.discriminator
@@ -79,7 +83,7 @@ class DIRECT(TrainableAlgorithm, PPO):
     safe_intersect = lambda a,b: _intersect(a,b) == _intersect(b,a)
     for e,h in zip(self.ep_info_buffer, self._history): # Snyc ep_infos
       if self.normalize: h['r'] = e['r'] # Write unnormalized reward, for comparabiltiy
-      assert safe_intersect(e,h), "History mismatch"; e.update(h)
+      assert safe_intersect(e,h), f"History mismatch: {e}, {h}"; e.update(h)
 
     # Update Discriminator & write stats
     disc_stats = discriminator.train(direct_buffer=self.buffer, policy_buffer=policy_buffer)
