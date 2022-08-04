@@ -109,20 +109,33 @@ class GridworldsActionSpace(gym.spaces.Discrete):
   def sample(self): return random.randint(self.min_action, self.max_action)
   def contains(self, x): return self.min_action <= x <= self.max_action
 
-
-class GridworldsObservationSpace(gym.spaces.Box): 
+# Multidiscrete Observation
+class GridworldsObservationSpace(gym.spaces.MultiDiscrete): 
   def __init__(self, env: safety_game.SafetyEnvironment, use_transitions):
-    self.observation_spec_dict, self.use_transitions, values = env.observation_spec(), use_transitions, list(env._value_mapping.values())
-    shape = (2, *self.observation_spec_dict["board"].shape) if use_transitions else (self.observation_spec_dict["board"].shape)
-    super(GridworldsObservationSpace, self).__init__(low=values[0], high=values[-1], shape=shape, dtype=int)
-  
+    self.observation_spec_dict = env.observation_spec(); self.use_transitions = use_transitions
+    if self.use_transitions: shape = (2, *self.observation_spec_dict["board"].shape)
+    else: shape = (self.observation_spec_dict["board"].shape)
+    field_types = len(env._value_mapping); obs_space = np.full(shape, field_types)
+    super(GridworldsObservationSpace, self).__init__(obs_space)
+
   def contains(self, x):
-    if not "board" in self.observation_spec_dict.keys(): return False
-    try:
-      self.observation_spec_dict["board"].validate(x[0, ...])
-      if self.use_transitions: self.observation_spec_dict["board"].validate(x[1, ...])
-      return True
-    except ValueError: return False
+    if "board" in self.observation_spec_dict.keys():
+      try:
+        self.observation_spec_dict["board"].validate(x[0, ...])
+        if self.use_transitions: self.observation_spec_dict["board"].validate(x[1, ...])
+        return True
+      except ValueError: return False
+    else: return False
+
+  def sample(self):
+    """ Use pycolab to generate an example observation. Note that this is not a
+    random sample, but might return the same observation for every call. """
+    if self.use_transitions: raise NotImplementedError("Sampling from transition-based envs not yet supported.")
+    observation = {}
+    for key, spec in self.observation_spec_dict.items():
+      if spec == {}: observation[key] = {}
+      else: observation[key] = spec.generate_value()
+    return observation["board"][np.newaxis, :]
 
 
 def init_viewer(env_name, pause):
