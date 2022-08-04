@@ -1,5 +1,4 @@
 """ Generic Algorithm Class extending BaseAlgorithm with features needed by the training pipeline """
-
 import numpy as np; import pandas as pd
 import torch as th; import scipy.stats as st
 from stable_baselines3.common.base_class import BaseAlgorithm
@@ -8,33 +7,31 @@ from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 from torch.utils.tensorboard.writer import SummaryWriter
 from typing import Any, Dict, List, Optional, Type, Union
-from tqdm import tqdm
+from tqdm import tqdm; import os
 import platform; import stable_baselines3 as sb3; import gym
-
 from .evaluation import EvaluationCallback
 
 class TrainableAlgorithm(BaseAlgorithm):
-
-  def __init__(self, envs:Optional[Dict[str,VecEnv]]=None, normalize:bool=False, policy:Union[str,Type[ActorCriticPolicy]]="MlpPolicy", tb_path:Optional[str]=None, **kwargs):
+  def __init__(self, envs:Optional[Dict[str,VecEnv]]=None, normalize:bool=False, policy:Union[str,Type[ActorCriticPolicy]]="MlpPolicy", path:Optional[str]=None, **kwargs):
     """ :param env: The environment to learn from (if registered in Gym, can be str)
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...) defaults to MlpPolicy
     :param normalize: whether to use normalized observations, default: False
-    :param tb_path: (str) the log location for tensorboard (if None, no logging) """
+    :param path: (str) the log location for tensorboard (if None, no logging) """
     if envs: kwargs['env'] = envs['train']
-    self.envs, self.normalize, self.tb_path, self.progress_bar = envs, normalize, tb_path, None
+    self.envs, self.normalize, self.path, self.progress_bar = envs, normalize, path, None
     super().__init__(policy=policy, verbose=0, **kwargs)
-    print("+-------------------------------------------------------+\n"\
-      f"| System: {platform.platform()} |\n| Version: {platform.version()} |\n" \
-      f"| GPU: {f'Enabled, version {th.version.cuda} on {th.cuda.get_device_name(0)}' if th.cuda.is_available() else'Disabled'} |\n"\
-      f"| Python: {platform.python_version()} | PyTorch: {th.__version__} | Numpy: {np.__version__} |\n" \
-      f"| Stable-Baselines3: {sb3.__version__} | Gym: {gym.__version__} | Seed: {self.seed}     |\n"\
-        "+-------------------------------------------------------+")
     
   def _setup_model(self) -> None:
     if self.normalize: self.env = VecNormalize(self.env)
     self._naming = {'l': 'length-100', 'r': 'return-100', 's': 'safety-100'}; self._custom_scalars = {}
     super(TrainableAlgorithm, self)._setup_model()
-    self.writer, self._registered_ci = SummaryWriter(log_dir=self.tb_path) if self.tb_path else None, []
+    self.writer, self._registered_ci = SummaryWriter(log_dir=self.path) if self.path else None, []
+    print("+-------------------------------------------------------+\n"\
+      f"| System: {platform.platform()} |\n| Version: {platform.version()} |\n" \
+      f"| GPU: {f'Enabled, version {th.version.cuda} on {th.cuda.get_device_name(0)}' if th.cuda.is_available() else'Disabled'} |\n"\
+      f"| Python: {platform.python_version()} | PyTorch: {th.__version__} | Numpy: {np.__version__} |\n" \
+      f"| Stable-Baselines3: {sb3.__version__} | Gym: {gym.__version__} | Seed: {self.seed:3d}    |\n"\
+        "+-------------------------------------------------------+")
 
   #Helper functions for writing model or hyperparameters
   def _excluded_save_params(self) -> List[str]:
@@ -108,8 +105,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     exclude = ['device','verbose','writer','tensorboard_log','start_time','rollout_buffer','eval_env']+\
       ['policy','policy_kwargs','policy_class','lr_schedule','sde_sample_freq','clip_range','clip_range_vf']+\
       ['env','observation_space','action_space','action_noise','ep_info_buffer','ep_success_buffer','target_kl']+\
-      ['envs', 'tb_path', 'progress_bar', 'disc_kwargs', 'buffer']
-    
+      ['envs', 'path', 'progress_bar', 'disc_kwargs', 'buffer']
     hparams = pd.json_normalize(
       {k: v.__name__ if isinstance(v, type) else v.get_hparams() if hasattr(v, 'get_hparams') else 
           v for k,v in vars(self).items() if not(k in exclude or k.startswith('_'))
@@ -126,15 +122,11 @@ class TrainableAlgorithm(BaseAlgorithm):
     [i.get("episode",{}).update({'s': i.pop('safety',{}), 't': self.num_timesteps}) for i in infos]
     super(TrainableAlgorithm, self)._update_info_buffer(infos, dones)
 
-  @classmethod
-  def load(cls, envs: Dict[str,VecEnv], **kwargs) -> "TrainableAlgorithm": # TODO add envs dict 
-    print('load trainable')
-    kwargs['env'] = envs['train']; kwargs['envs'] = envs
-    return super(TrainableAlgorithm, cls).load(**kwargs)
+  def save(self, **kwargs) -> None: 
+    kwargs['path'] = self.path + "model/train"; super(TrainableAlgorithm, self).save(**kwargs)
 
-from stable_baselines3.ppo import PPO as StablePPO
-class PPO(TrainableAlgorithm, StablePPO):
-  """A Trainable extension to PPO"""
-  def train(self) -> None:
-    self.logger.record("rewards/environment", self.rollout_buffer.rewards.copy()) 
-    super(PPO, self).train()
+  @classmethod
+  def load(cls, envs: Dict[str,VecEnv], path, **kwargs) -> "TrainableAlgorithm":
+    kwargs['env'] = envs['train']; kwargs['envs'] = envs; path = path + "model/train"; kwargs['path'] = path
+    assert os.path.exists(path+'.zip'), f"Attempting to load a model from {path} that does not exist"
+    return super(TrainableAlgorithm, cls).load(**kwargs)
