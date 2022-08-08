@@ -12,6 +12,25 @@ Discriminative Reward Co-Training
 $ pip install -r requirements.txt
 ```
 
+### Training
+
+Example for training direct in safety environments  
+```python 
+from direct import DIRECT 
+from util import TrainableAlgorithm
+from safety_env import factory
+
+envs = factory(seed=42, name='DistributionalShift')
+model:TrainableAlgorithm = DIRECT(envs=envs, seed=42, path='results/DIRECT/42', chi=1.0, kappa=512, omega=1/1)
+
+# Evaluation is done within the training loop
+model.learn(total_timesteps=10e4, stop_on_reward=True)
+model.save(base_path+"models/trained")
+
+reload = algorithm.load(envs=envs, path=base_path+"models/trained")
+reload.learn(total_timesteps=512, reset_num_timesteps=False)
+```
+
 ## Fix Warnings in used packages 
 
 `/.direnv/python-3.7.7/lib/python3.7/site-packages/pycolab/ascii_art.py:318: FutureWarning: arrays to stack must be passed as a "sequence" type such as list or tuple. Support for non-sequence iterables such as generators is deprecated as of NumPy 1.16 and will raise an error in the future.`
