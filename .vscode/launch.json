@@ -1,0 +1,32 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "run",
+      "type": "python",
+      "request": "launch",
+      "module": "run",
+      "args": ["${input:algorithm}", "-ts", "${input:steps}"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ],
+  "inputs": [
+    {
+      "type": "pickString",
+      "id": "algorithm",
+      "description": "Which algorithm do you want to run?",
+      "options": [ "DIRECT", "PPO"],
+      "default": "DIRECT"
+    },{
+      "type": "promptString",
+      "id": "steps",
+      "description": "How many steps do you want to train?",
+      "default": "10e+4"
+    }
+
+  ]
+}

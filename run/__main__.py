@@ -11,8 +11,8 @@ parser.add_argument('-s', dest='seed', type=int, help='The random seed. If not s
 parser.add_argument('--load', help='Whether to load a model or train a new one.', action='store_true')
 
 # Training Arguments
-parser.add_argument('-t', dest='timesteps', type=int, default=8192, help='Number of timesteps to learn the model (eg 10e4)')
-parser.add_argument('-ts', dest='maxsteps', type=int, help='Maximum timesteps to learn the model (eg 10e4), using early stopping')
+parser.add_argument('-t', dest='timesteps', type=float, default=8192, help='Number of timesteps to learn the model (eg 10e4)')
+parser.add_argument('-ts', dest='maxsteps', type=float, help='Maximum timesteps to learn the model (eg 10e4), using early stopping')
 parser.add_argument('--reward-threshold', type=float, help='Threshold for 100 episode mean return to stop training.')
 
 # DIRECT Specific Arguments  
