@@ -49,10 +49,11 @@ class TrainableAlgorithm(BaseAlgorithm):
     :return: the trained model """
     callback = EvaluationCallback(self, self.envs['test'], stop_on_reward=stop_on_reward)
     if 'callback' in kwargs: callback = CallbackList([kwargs['callback'], callback])
-    alg = self.__class__.__name__
+    alg = self.__class__.__name__; total = self.num_timesteps+total_timesteps
     hp = f"(χ={self.chi}, κ={self.kappa}, ω={self.omega})" if alg=="DIRECT" else ""
-    self.progress_bar = tqdm(total=total_timesteps, desc=f"Training {alg}{hp}", unit="steps", postfix=[0,""], 
+    self.progress_bar = tqdm(total=total, desc=f"Training {alg}{hp}", unit="steps", postfix=[0,""], 
       bar_format="{desc}[R: {postfix[0]:4.2f}][{bar}]({percentage:3.0f}%)[{n_fmt}/{total_fmt}@{rate_fmt}]")
+    self.progress_bar.update(self.num_timesteps);
     model = super(TrainableAlgorithm, self).learn(total_timesteps=total_timesteps, callback=callback, **kwargs)
     self.progress_bar.close()
     return model
