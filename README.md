@@ -14,7 +14,22 @@ $ pip install -r requirements.txt
 
 ### Training
 
-Example for training direct in safety environments  
+Using the python runner: 
+```sh
+# Run DIRECT Training for 8192 steps
+$ python -m run DIRECT -t 8192
+
+# ..., stopping early [at specified threshold]
+$ python -m run DIRECT -ts 8192 --reward-threshold 
+
+# Reload model with seed 42
+$ python -m run DIRECT --load -s 42
+
+# Display help for command line arguments 
+$ python -m run -h
+```
+
+Example for training direct in safety environments:
 ```python 
 from direct import DIRECT 
 from util import TrainableAlgorithm
