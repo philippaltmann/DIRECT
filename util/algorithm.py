@@ -41,14 +41,13 @@ class TrainableAlgorithm(BaseAlgorithm):
     :return: List of parameters that should be excluded from being saved with pickle. """
     return super(TrainableAlgorithm, self)._excluded_save_params() + ['_naming', '_custom_scalars', '_registered_ci', 'envs', 'writer', 'progress_bar']
 
-  def learn(self, total_timesteps: int, stop_on_reward:bool=True, **kwargs) -> "TrainableAlgorithm":
+  def learn(self, total_timesteps: int, stop_on_reward:float=None, **kwargs) -> "TrainableAlgorithm":
     """ Learn a policy
     :param total_timesteps: The total number of samples (env steps) to train on
-    :param stop_on_reward: whether or not to use early stopping 
+    :param stop_on_reward: Threshold of the mean 100 episode return to terminate training.
     :param **kwargs: further aguments are passed to the parent classes 
     :return: the trained model """
-    reward_threshold = self.env.unwrapped.get_attr('spec')[0].reward_threshold
-    callback = EvaluationCallback(self, self.envs['test'], stop_on_reward=stop_on_reward, reward_threshold=reward_threshold)
+    callback = EvaluationCallback(self, self.envs['test'], stop_on_reward=stop_on_reward)
     if 'callback' in kwargs: callback = CallbackList([kwargs['callback'], callback])
     alg = self.__class__.__name__
     hp = f"(χ={self.chi}, κ={self.kappa}, ω={self.omega})" if alg=="DIRECT" else ""
