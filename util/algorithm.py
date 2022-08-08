@@ -50,9 +50,11 @@ class TrainableAlgorithm(BaseAlgorithm):
     callback = EvaluationCallback(self, self.envs['test'], stop_on_reward=stop_on_reward)
     if 'callback' in kwargs: callback = CallbackList([kwargs['callback'], callback])
     alg = self.__class__.__name__; total = self.num_timesteps+total_timesteps
-    hp = f"(χ={self.chi}, κ={self.kappa}, ω={self.omega})" if alg=="DIRECT" else ""
-    self.progress_bar = tqdm(total=total, desc=f"Training {alg}{hp}", unit="steps", postfix=[0,""], 
-      bar_format="{desc}[R: {postfix[0]:4.2f}][{bar}]({percentage:3.0f}%)[{n_fmt}/{total_fmt}@{rate_fmt}]")
+    hps = self.get_hparams(); hps.pop('seed'); hps.pop('num_timesteps');  # hp = f"(χ={self.chi}, κ={self.kappa}, ω={self.omega})" if alg=="DIRECT" else ""
+    print(f"Training {alg} with: χ={hps.pop('chi')}, κ={hps.pop('kappa')}, ω={hps.pop('omega')} | in {hps.pop('env_name')} (x{hps.pop('n_envs')}) "\
+      f"with {hps.pop('n_epochs')} / {hps.pop('discriminator_n_updates')} updates in {hps.pop('batch_size')} / {hps.pop('discriminator_batch_size')}"\
+      f" batches [Policy/Discriminator] on {hps.pop('n_steps')} step rollouts")  # \n\t{', '.join([f'{k}: {v}' for k,v in hps.items()])}")
+    self.progress_bar = tqdm(total=total, unit="steps", postfix=[0,""], bar_format="{desc}[R: {postfix[0]:4.2f}][{bar}]({percentage:3.0f}%)[{n_fmt}/{total_fmt}@{rate_fmt}]") #desc=f"Training {alg}{hp}",
     self.progress_bar.update(self.num_timesteps);
     model = super(TrainableAlgorithm, self).learn(total_timesteps=total_timesteps, callback=callback, **kwargs)
     self.progress_bar.close()
@@ -114,8 +116,8 @@ class TrainableAlgorithm(BaseAlgorithm):
     hp_num = {k:v for k,v in hparams.items() if isinstance(v, (float))}
     hp_str = {k:str(v) for k,v in hparams.items() if isinstance(v, (str, list))}
     hp_mdd = {k:v for k,v in hparams.items() if isinstance(v, (dict, th.Tensor))} #list
-    assert not len(hp_mdd), "Skipped writing hparams of multi-dimensional data"      
-    return {**hp_dis, **hp_num, **hp_str}
+    assert not len(hp_mdd), "Skipped writing hparams of multi-dimensional data"
+    return {**hp_dis, **hp_num, **hp_str, **{'env_name': self.env.get_attr('env_name')[0]}}
   
   def _update_info_buffer(self, infos: List[Dict[str, Any]], dones: Optional[np.ndarray] = None) -> None:
     """ Copy safety metric to episode summary & overwrite t to display the current timestep"""

@@ -22,7 +22,7 @@ class SafetyEnv(gym.Env):
 
   def __init__(self, env_name, use_transitions=False, render_animation_delay=0.1, seed=None, **kwargs):
     self.np_random, seed = gym.utils.seeding.np_random(seed)
-    self._env_name, self._render_animation_delay = env_name, render_animation_delay
+    self.env_name, self._render_animation_delay = env_name, render_animation_delay
     self._last_hidden_reward, self._viewer, self._rbg = 0, None, None
     self._env: safety_game.SafetyEnvironment = factory.get_environment_obj(env_name, **kwargs)
     self._use_transitions, self._last_board  = use_transitions, None
@@ -92,7 +92,7 @@ class SafetyEnv(gym.Env):
           return ansi_string
       elif mode == "human":
         if self._viewer is None:
-          self._viewer = init_viewer(self._env_name, self._render_animation_delay)
+          self._viewer = init_viewer(self.env_name, self._render_animation_delay)
           self._viewer.display(self._env)
         else: self._viewer.display(self._env)
       else: super(SafetyEnv, self).render(mode=mode)  # just raise an exception
