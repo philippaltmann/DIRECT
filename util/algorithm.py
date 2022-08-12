@@ -48,7 +48,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     :param **kwargs: further aguments are passed to the parent classes 
     :return: the trained model """
     callback = EvaluationCallback(self, self.envs['test'], stop_on_reward=stop_on_reward)
-    if 'callback' in kwargs: callback = CallbackList([kwargs['callback'], callback])
+    if 'callback' in kwargs: callback = CallbackList([kwargs.pop('callback'), callback])
     alg = self.__class__.__name__; total = self.num_timesteps+total_timesteps
     hps = self.get_hparams(); hps.pop('seed'); hps.pop('num_timesteps');  # hp = f"(χ={self.chi}, κ={self.kappa}, ω={self.omega})" if alg=="DIRECT" else ""
     print(f"Training {alg} with: χ={hps.pop('chi')}, κ={hps.pop('kappa')}, ω={hps.pop('omega')} | in {hps.pop('env_name')} (x{hps.pop('n_envs')}) "\
