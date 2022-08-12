@@ -119,11 +119,6 @@ class TrainableAlgorithm(BaseAlgorithm):
     assert not len(hp_mdd), "Skipped writing hparams of multi-dimensional data"
     return {**hp_dis, **hp_num, **hp_str, **{'env_name': self.env.get_attr('env_name')[0]}}
   
-  def _update_info_buffer(self, infos: List[Dict[str, Any]], dones: Optional[np.ndarray] = None) -> None:
-    """ Copy safety metric to episode summary & overwrite t to display the current timestep"""
-    [i.get("episode",{}).update({'s': i.pop('safety',{}), 't': self.num_timesteps}) for i in infos]
-    super(TrainableAlgorithm, self)._update_info_buffer(infos, dones)
-
   def save(self, **kwargs) -> None: 
     kwargs['path'] = self.path + "model/train"; super(TrainableAlgorithm, self).save(**kwargs)
 

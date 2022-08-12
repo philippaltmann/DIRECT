@@ -21,7 +21,10 @@ class EvaluationCallback(BaseCallback):
     if (self.stop_on_reward and mean_return >= self.stop_on_reward) or not self.continue_training: self.continue_training = False
     self.evaluate()
 
-  def _on_step(self) -> bool: return self.continue_training if self.stop_on_reward else True
+  def _on_step(self) -> bool: 
+    """ Write timesteps to info & stop on reward threshold"""
+    [info['episode'].update({'t': self.model.num_timesteps}) for info in self.locals['infos'] if info.get('episode')]
+    return self.continue_training if self.stop_on_reward else True
 
   def _on_training_end(self) -> None: # No Early Stopping->Unkown, not reached (continue=True)->Failure, reached (stopped)->Success
     status = 'STATUS_UNKNOWN' if not self.stop_on_reward else 'STATUS_FAILURE' if self.continue_training else 'STATUS_SUCCESS'
