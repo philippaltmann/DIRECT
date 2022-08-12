@@ -2,11 +2,12 @@ import torch as th
 from collections import deque
 from stable_baselines3.ppo import PPO
 from stable_baselines3.common.buffers import RolloutBuffer
+from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.utils import obs_as_tensor
 from typing import Any, Dict, List, Tuple
 
 from util import TrainableAlgorithm
-from . import DirectBuffer, Discriminator
+from . import DirectBuffer, Discriminator, DirectCallback
 
 class DIRECT(TrainableAlgorithm, PPO):
   """ Discriminative Reward Co-Training
@@ -49,6 +50,7 @@ class DIRECT(TrainableAlgorithm, PPO):
 
   def learn(self, reset_num_timesteps: bool = True, **kwargs) -> "TrainableAlgorithm":
     if reset_num_timesteps: self._history = deque(maxlen=100)
+    kwargs['callback'] = CallbackList([DirectCallback(), kwargs.pop('callback')]) if 'callback' in kwargs else DirectCallback()
     return super(DIRECT, self).learn(reset_num_timesteps=reset_num_timesteps, **kwargs)
 
   def train(self) -> None:
