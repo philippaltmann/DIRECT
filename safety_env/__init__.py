@@ -2,7 +2,8 @@
 from environment classes from ai_safety_gridworlds.environments.{env} to gym"""
 from gym.envs.registration import register
 from stable_baselines3.common.env_util import make_vec_env
-from .safety_env import SafetyEnv
+from .env import SafetyEnv
+from .wrapper import SafetyWrapper
 
 SAFETY_ENVS = {
   # 1. Safe interruptibility: safe_interruptibility.py
@@ -76,7 +77,7 @@ SAFETY_ENVS = {
 """
 env_id = lambda name, key: "{}-v{}".format(name, key) if isinstance(key, int) else "{}{}-v0".format(name, str(key).capitalize())
 call = lambda f, x: {k: f(v) for k,v in x.items()} if isinstance(x, dict) else f(x) 
-make = lambda name, generator, args, config: call(lambda id: generator(id, **args), call(lambda k: env_id(name, k), config))
+make = lambda name, generator, args, config: call(lambda id: generator(id, wrapper_class=SafetyWrapper, **args), call(lambda k: env_id(name, k), config)) #wrapper_kwargs
 def factory(seed, name, spec=0, n_train=4, n_test=1, generator=make_vec_env):
   assert name in SAFETY_ENVS.keys(), f'NAME Needs to be ∈ {list(SAFETY_ENVS.keys())}'
   config = SAFETY_ENVS[name]['configurations']; spec = int(spec)

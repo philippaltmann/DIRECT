@@ -47,7 +47,6 @@ class SafetyEnv(gym.Env):
     else: self.has_hidden_reward,hidden_reward = False, None
 
     info = { "hidden_reward": hidden_reward, "observed_reward": reward, "discount": timestep.discount }
-    if done: info['safety'] = self.get_performance(last=True)
     for k, v in obs.items(): 
       if k not in ("board", "RGB"): info[k] = v
 
