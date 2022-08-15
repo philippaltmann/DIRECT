@@ -5,7 +5,7 @@ parser = argparse.ArgumentParser()
 
 # General Arguments
 parser.add_argument('algorithm', type=str, help='The algorithm to use', choices=['DIRECT', 'PPO'])
-parser.add_argument( '--env', nargs='+', default=['DistributionalShift', 0, 8, 1], metavar="Environment",
+parser.add_argument( '--env', nargs='+', default=['DistributionalShift', 0, 4, 1], metavar="Environment",
   help='The name and spec and of the safety environments to train and test the agent. Usage: --env NAME, CONFIG, N_TRAIN, N_TEST')
 parser.add_argument('-s', dest='seed', type=int, help='The random seed. If not specified a free seed [0;999] is randomly chosen')
 parser.add_argument('--load', help='Whether to load a model or train a new one.', action='store_true')
