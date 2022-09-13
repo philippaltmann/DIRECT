@@ -78,13 +78,14 @@ SAFETY_ENVS = {
 env_id = lambda name, key: "{}-v{}".format(name, key) if isinstance(key, int) else "{}{}-v0".format(name, str(key).capitalize())
 call = lambda f, x: {k: f(v) for k,v in x.items()} if isinstance(x, dict) else f(x) 
 make = lambda name, generator, args, config: call(lambda id: generator(id, wrapper_class=SafetyWrapper, **args), call(lambda k: env_id(name, k), config)) #wrapper_kwargs
-def factory(seed, name, spec=0, n_train=4, n_test=1, generator=make_vec_env):
+def factory(seed, name, spec=0, n_train=4, n_test=1, generator=make_vec_env, sparse=False):
+  if name.endswith('-Sparse'): name = name[:-7]; sparse = True 
   assert name in SAFETY_ENVS.keys(), f'NAME Needs to be ∈ {list(SAFETY_ENVS.keys())}'
   config = SAFETY_ENVS[name]['configurations']; spec = int(spec)
   assert spec in range(len(config)), f'{name} only offers specifications in range {list(range(len(config)))}'
   n_train = int(n_train); n_test = int(n_test); config = config[spec]
   assert n_train > 0 and n_test > 0, "Please specify a number of training and testing environments > 0"
-  STAGES = { "train": { "n_envs": n_train, "seed": seed }, "test": {"n_envs": n_test, "seed": seed } }
+  STAGES = { "train": { "n_envs": n_train, "seed": seed, "wrapper_kwargs": { "sparse": sparse } }, "test": {"n_envs": n_test, "seed": seed } }
   return { stage: make(name, generator, args, config[stage]) for stage, args in STAGES.items() }
 
 # Env Registration
