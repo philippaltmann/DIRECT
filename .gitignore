@@ -3,6 +3,7 @@
 
 ### DIRECT ###
 results/
+experiment*
 
 ### direnv ###
 .direnv
