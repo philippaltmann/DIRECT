@@ -9,6 +9,7 @@ parser.add_argument( '--env', nargs='+', default=['DistributionalShift', 0, 4, 1
   help='The name and spec and of the safety environments to train and test the agent. Usage: --env NAME, CONFIG, N_TRAIN, N_TEST')
 parser.add_argument('-s', dest='seed', type=int, help='The random seed. If not specified a free seed [0;999] is randomly chosen')
 parser.add_argument('--load', help='Whether to load a model or train a new one.', action='store_true')
+parser.add_argument('--test', help='Run in test mode (dont write log files).', action='store_true')
 
 # Training Arguments
 parser.add_argument('-t', dest='timesteps', type=float, default=10e4, help='Number of timesteps to learn the model (eg 10e4)')
@@ -34,6 +35,7 @@ env = dict(zip(['name', 'spec', 'n_train', 'n_test'], args.pop('env')))
 base_path = lambda seed: f"results/{algorithm.__name__}/{env['name']}{hp_suffix}/{seed}/"
 gen_seed = lambda s=random.randint(0, 999): s if not os.path.isdir(base_path(s)) else gen_seed()
 seed = args.pop('seed', gen_seed()); path = base_path(seed); envs = factory(seed, **env)
+if args.pop('test'): path = None
 
 # Extract training parameters & merge model args
 reward_threshold = envs['train'].unwrapped.get_attr('spec')[0].reward_threshold

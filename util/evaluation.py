@@ -17,6 +17,7 @@ class EvaluationCallback(BaseCallback):
     self.stop_on_reward, self.continue_training = stop_on_reward, True
 
   def _on_rollout_end(self) -> None:
+    if self.writer == None: return 
     mean_return = np.mean([ep_info["r"] for ep_info in self.model.ep_info_buffer])
     if (self.stop_on_reward and mean_return >= self.stop_on_reward) or not self.continue_training: self.continue_training = False
     self.evaluate()
@@ -27,6 +28,7 @@ class EvaluationCallback(BaseCallback):
     return self.continue_training if self.stop_on_reward else True
 
   def _on_training_end(self) -> None: # No Early Stopping->Unkown, not reached (continue=True)->Failure, reached (stopped)->Success
+    if self.writer == None: return 
     status = 'STATUS_UNKNOWN' if not self.stop_on_reward else 'STATUS_FAILURE' if self.continue_training else 'STATUS_SUCCESS'
     metrics = self.evaluate(); write_hyperparameters(self.model, list(metrics.keys()), status)
 
