@@ -51,22 +51,23 @@ class TrainableAlgorithm(BaseAlgorithm):
     if 'callback' in kwargs: callback = CallbackList([kwargs.pop('callback'), callback])
     alg = self.__class__.__name__; total = self.num_timesteps+total_timesteps
     hps = self.get_hparams(); hps.pop('seed'); hps.pop('num_timesteps');  # hp = f"(χ={self.chi}, κ={self.kappa}, ω={self.omega})" if alg=="DIRECT" else ""
-    print(f"Training {alg} with: χ={hps.pop('chi')}, κ={hps.pop('kappa')}, ω={hps.pop('omega')} | in {hps.pop('env_name')} (x{hps.pop('n_envs')}) "\
-      f"with {hps.pop('n_epochs')} / {hps.pop('discriminator_n_updates')} updates in {hps.pop('batch_size')} / {hps.pop('discriminator_batch_size')}"\
-      f" batches [Policy/Discriminator] on {hps.pop('n_steps')} step rollouts")  # \n\t{', '.join([f'{k}: {v}' for k,v in hps.items()])}")
+    hyper = f"with: χ={hps.pop('chi')}, κ={hps.pop('kappa')}, ω={hps.pop('omega')}" if alg == "DIRECT" else ""
+    disc = f"with {hps.pop('n_epochs')} / {hps.pop('discriminator_n_updates')} updates in {hps.pop('batch_size')} / {hps.pop('discriminator_batch_size')} batches [Policy/Discriminator] on {hps.pop('n_steps')} step rollouts" if alg == "DIRECT" else ""
+    print(f"Training {alg} {hyper} | in {hps.pop('env_name')} (x{hps.pop('n_envs')}) {disc}") 
     self.progress_bar = tqdm(total=total, unit="steps", postfix=[0,""], bar_format="{desc}[R: {postfix[0]:4.2f}][{bar}]({percentage:3.0f}%)[{n_fmt}/{total_fmt}@{rate_fmt}]") #desc=f"Training {alg}{hp}",
     self.progress_bar.update(self.num_timesteps);
     model = super(TrainableAlgorithm, self).learn(total_timesteps=total_timesteps, callback=callback, **kwargs)
     self.progress_bar.close()
     return model
 
-  def train(self) -> None:
+  def train(self, **kwargs) -> None:
     # Update Progressbar 
     self.progress_bar.postfix[0] = np.mean([ep_info["r"] for ep_info in self.ep_info_buffer])
     self.progress_bar.update(self.n_steps * self.env.num_envs); summary, step = {}, self.num_timesteps 
 
-    super(TrainableAlgorithm, self).train() # Train PPO & Write Training Stats 
-    
+    super(TrainableAlgorithm, self).train(**kwargs) # Train PPO & Write Training Stats 
+    if self.writer == None: return 
+
     # Get infos from episodes & record rewards confidence intervals to summary 
     epdata = {name: {ep['t']: ep[key] for ep in self.ep_info_buffer} for key,name in self._naming.items()}
     summary.update(self.prepare_ci(epdata, category="rewards", write_raw=True))
