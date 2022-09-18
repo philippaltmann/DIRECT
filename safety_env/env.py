@@ -7,7 +7,6 @@ import gym; import numpy as np
 
 from ai_safety_gridworlds.helpers import factory
 from .agent_viewer import AgentViewer
-# import safe_grid_gym.envs.gridworlds_env import gridworlds_env
 from ai_safety_gridworlds.environments.shared import safety_game
 
 class SafetyEnv(gym.Env):
@@ -56,8 +55,8 @@ class SafetyEnv(gym.Env):
 
     return (state, reward, done, info)
   
-  def reset(self):
-    timestep = self._env.reset()
+  def reset(self, game_art=None):
+    timestep = self._env.reset(game_art)
     self._rgb = timestep.observation["RGB"]
     if self._viewer is not None: self._viewer.reset_time()
  
