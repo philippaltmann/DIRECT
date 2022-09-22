@@ -3,7 +3,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from torch.utils.tensorboard.writer import SummaryWriter
-from util.logging import write_hyperparameters
+from common.logging import write_hyperparameters
 
 class EvaluationCallback(BaseCallback):
   """ Callback for evaluating an agent.
