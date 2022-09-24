@@ -27,6 +27,9 @@ class DIRECT(TrainableAlgorithm, PPO):
 
   def _setup_model(self) -> None: 
     super(DIRECT, self)._setup_model(); self._naming.update({'d': 'direct-100'}) 
+    self.heatmap_iterations.update( {'direct': lambda _, s, a, r: self.discriminator.reward(
+      DirectBuffer.prepare(self.buffer, [s], [a], [r()])
+    ).flatten()[0]})
     self.disc_kwargs.setdefault('batch_size', self.batch_size) 
     self.buffer = DirectBuffer(buffer_size=self.kappa, parent=self)
     self.discriminator = Discriminator(chi=self.chi, parent=self, **self.disc_kwargs).to(self.device)
