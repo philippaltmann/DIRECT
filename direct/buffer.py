@@ -96,4 +96,7 @@ class DirectBuffer(BaseBuffer):
       if rew is not None: return self._normalize_reward(rew, env=self.env) 
     else: return obs if obs is not None else rew if rew is not None else None
 
-  def metrics(self): return {"rewards": np.array(self.rewards), "momentum": self.overwrites, "samples": self.size()}
+  def metrics(self): 
+    return { "scores": np.array([s.get(False) for s in self.scores]),
+      "rewards": np.array(self.rewards), "momentum": self.overwrites, "samples": self.size()
+    }
