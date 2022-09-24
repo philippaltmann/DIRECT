@@ -3,7 +3,7 @@ import numpy as np; import pandas as pd
 import torch as th; import scipy.stats as st
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import CallbackList
-from stable_baselines3.common.policies import ActorCriticPolicy
+from stable_baselines3.common.policies import ActorCriticPolicy, obs_as_tensor as obs
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 from torch.utils.tensorboard.writer import SummaryWriter
 from typing import Any, Dict, List, Optional, Type, Union
@@ -24,6 +24,8 @@ class TrainableAlgorithm(BaseAlgorithm):
   def _setup_model(self) -> None:
     if self.normalize: self.env = VecNormalize(self.env)
     self._naming = {'l': 'length-100', 'r': 'return-100', 's': 'safety-100'}; self._custom_scalars = {}
+    self.get_actions = lambda s: self.policy.get_distribution(s).distribution.probs.cpu().detach().numpy()
+    self.heatmap_iterations = { 'policy': lambda _, s, a, r: self.get_actions(obs(s, self.device))[0][a] }
     super(TrainableAlgorithm, self)._setup_model()
     self.writer, self._registered_ci = SummaryWriter(log_dir=self.path) if self.path else None, []
     print("+-------------------------------------------------------+\n"\
@@ -39,7 +41,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     E.g. replay buffers are skipped by default as they take up a lot of space.
     PyTorch variables should be excluded with this so they can be stored with ``th.save``.
     :return: List of parameters that should be excluded from being saved with pickle. """
-    return super(TrainableAlgorithm, self)._excluded_save_params() + ['_naming', '_custom_scalars', '_registered_ci', 'envs', 'writer', 'progress_bar']
+    return super(TrainableAlgorithm, self)._excluded_save_params() + ['get_actions', 'heatmap_iterations', '_naming', '_custom_scalars', '_registered_ci', 'envs', 'writer', 'progress_bar']
 
   def learn(self, total_timesteps: int, stop_on_reward:float=None, **kwargs) -> "TrainableAlgorithm":
     """ Learn a policy
