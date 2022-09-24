@@ -2,7 +2,7 @@ from stable_baselines3.ppo import PPO
 from stable_baselines3.common.callbacks import CallbackList
 from typing import Any, Dict, List, Tuple
 
-from util import TrainableAlgorithm
+from common import TrainableAlgorithm
 from . import DirectBuffer, Discriminator, DirectCallback
 
 class DIRECT(TrainableAlgorithm, PPO):
