@@ -4,6 +4,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from torch.utils.tensorboard.writer import SummaryWriter
 from common.logging import write_hyperparameters
+from common.plotting import triangle_heatmap
 
 class EvaluationCallback(BaseCallback):
   """ Callback for evaluating an agent.
@@ -49,4 +50,6 @@ class EvaluationCallback(BaseCallback):
     metrics[f"metrics/{label}_reward"] = evaluate_policy(self.model, env, callback=record_video, **eval_kwargs)[0]
     metrics[f'metrics/{label}_performance'] = env.env_method('get_performance')[0]
     if write_video: self.writer.add_video(label, retreive(video_buffer), step, FPS) 
+    heatmap_data = {f'{key}_heatmap/{label}': env.envs[0].iterate(f) for key, f in self.model.heatmap_iterations.items()}
+    [self.writer.add_figure(key, triangle_heatmap(data), step) for key, data in heatmap_data.items()] # Create & write tringle heatmap plots
     return metrics
