@@ -26,7 +26,7 @@ class SafetyWrapper(gym.Wrapper):
       if self.sparse and not done: return (state, 0.0, done, info)
       return (state, reward, done, info)
 
-    def reset(self, **kwargs):
-      state = self.env.reset(**kwargs)
+    def reset(self, game_art=None):
+      state = self.env.reset(game_art=game_art)
       self.states, self.actions, self.rewards = [state], [], []
       return state
