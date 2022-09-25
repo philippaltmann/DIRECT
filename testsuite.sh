@@ -3,18 +3,20 @@
 # Kappa 256 512 1024 2048 
 
 ENV="DistributionalShift-Sparse"
-PATH="experiments/1-HP/sar"
+BASE="experiments/1-HP/sar"
 OUT="experiments/logfiles/direct-sar"
 
-for run in 1 2 3 4; do
+for run in 1 2 3 4 5 6 7; do
   for chi in 1.0; do #0.75 0.5 0.25  #0;
     for omega in 1.0 2.0 4.0 0.5 0.25; do
       for kappa in 256 512 1024 2048; do
-          nohup python -m run DIRECT -ts 10e5 --chi $chi --kappa $kappa --omega $omega --env $ENV --path $PATH &> "$OUT/DIRECT_$chi-$omega-$kappa_$(date +%s).out" &
+          nohup python -m run DIRECT -ts 10e5 --chi $chi --kappa $kappa --omega $omega --env $ENV --path $BASE="experiments/1-HP/sar"
+ &> "$OUT/DIRECT_$chi-$omega-$kappa_$(date +%s).out" &
           sleep 1
       done
-      sleep 1h
+      sleep 20m
     done
+    sleep 1h
   done
 done
 
