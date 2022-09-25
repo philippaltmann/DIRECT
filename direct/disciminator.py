@@ -74,7 +74,7 @@ class Discriminator(th.nn.Module):
     if self.obs_dim: inputs.append(th.flatten(obs, 1))
     if self.act_dim: inputs.append(th.flatten(act, 1))
     if self.rew_dim: inputs.append(th.flatten(rew, 1))
-    inputs_concat = th.cat(inputs, dim=1)
+    inputs_concat = th.cat(inputs, dim=1).float() 
     return self.net(inputs_concat)
 
   def backward(self, obs:th.Tensor, act:th.Tensor, rew:th.Tensor, labels:th.Tensor) -> Dict[str, float]:
