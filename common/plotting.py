@@ -2,6 +2,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.tri import Triangulation
 
+import os; import itertools; from parse import parse; from tqdm import tqdm
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator as EA
+
+
 def triangle_heatmap(data, min=0, max=1):
   # TODO: automatic min max scaling 
   figure, ax = plt.subplots(figsize=(8,6))
@@ -37,3 +41,50 @@ def triangle_heatmap(data, min=0, max=1):
   ax.set_xticks(range(len(data[0]))); ax.set_yticks(range(len(data))); 
   ax.margins(x=0, y=0); ax.set_aspect('equal', 'box'); plt.tight_layout()
   return figure
+
+
+def fetch_experiments(base='./results', alg=None, env=None):
+  """Loads and structures all tb log files Given:
+  :param base_path (str):
+  :param env (optional): the environment to load 
+  :param alg (optional): the algorithm to load 
+  Returns: list with dicts of experiments 
+  """
+  # Helper to fetch all relevant folders 
+  subdirs = lambda dir: [d for d in os.scandir(dir) if d.is_dir()]
+
+  print(f"Scanning for {alg if alg else 'algorithms'} in {base}")  # First layer: Algorithms
+  if alg: experiments = [{'algorithm': alg, 'path':f'{base}/{alg}'}]
+  else: experiments = [{'algorithm': a.name, 'path': a} for a in subdirs(base)]
+
+  print(f"Scanning for {env if env else 'environments'} in {base}")  # Second layer: Environments
+  if env: experiments = [{**exp, 'env': env, 'path': f'{exp["path"]}/{env}'} for exp in experiments]
+  else: experiments = [{**exp, 'env': e.name, 'path': e} for exp in tqdm(experiments) for e in subdirs(exp['path'])]
+
+  print(f"Scanning for hyperparameters in {base}")  # Third layer: Hyperparameters & number of runs
+  hp = lambda name: dict(zip(['chi','omega','kappa'], parse('{:.1f}_{:.1f}_{:d}', name) or []))
+  experiments = [{ **exp, 'path': e.path, **hp(e.name), 'runs': len(subdirs(e)) }
+    for exp in tqdm(experiments) if os.path.isdir(exp['path']) for e in subdirs(exp['path'])
+  ]
+
+  
+  print(f"Loading experiment logfiles from {base}")  # Fourth layer: tb files 
+  experiments = [{**exp,'tb': [ EA(p.path).Reload() for p in subdirs(exp['path'])]} for exp in tqdm(experiments)]
+
+  return experiments
+
+
+  forms = {'algorithm':'{}', 'env':'{}', 'chi': 'Χ: {:.1f}', 'omega':  'ω: {:.1f}', 'kappa': 'κ: {:d}'}
+  label = lambda exp, excl=[]: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key not in args.groupby + excl])
+  title = lambda exp: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key in args.groupby])
+  # [print(title(exp) + " | " + label(exp)) for exp in experiments]
+
+  # Create product of all occuances of specified groups, zip with group titles & add size and a counter of visited group items
+  options = list(itertools.product(*[ list(dict.fromkeys([exp[group] for exp in experiments])) for group in args.groupby ]))
+  ingroup = lambda experiment, group: all([experiment[k] == v for k,v in zip(args.groupby, group)])
+  options = list(zip(options, [[ title(exp) for exp in experiments if ingroup(exp,group)] for group in options ]))
+  options = [(group, [0, len(titles)], titles[0]) for group, titles in options]
+  # options = list(zip(options, [ (0, len([ 1 for exp in experiments if ingroup(exp,group)])) for group in options ]))
+  # print(f"{args.groupby} ∈ {options}")
+  # [print(group) for group in options]
+

@@ -9,6 +9,8 @@ from tqdm import tqdm
 
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
+from common.plotting import fetch_experiments
+
 # Process commandline arguments 
 parser = argparse.ArgumentParser()
 parser.add_argument('base', default='./results', help='The results root')
@@ -29,30 +31,8 @@ metrics = [
 #                      Red         Orange     Green          Blue        Purple 
 color_lookup = {"PPO": 340, "A2C": 40, "SIL": 130, "DIRECT": 210, "DQN": 290 }
 
-# Fetch all relevant folders 
-subdirs = lambda dir: [d for d in os.scandir(dir) if d.is_dir()]
-
-# First layer: Algorithms
-if args.alg: experiments = [{'algorithm': args.alg, 'path':f'{args.base}/{args.alg}'}]
-else: experiments = [{'algorithm': a.name, 'path': a} for a in subdirs(args.base)]
-
-# Second layer: Environments
-if args.env: experiments = [{**exp, 'env': args.env, 'path': f'{exp["path"]}/{args.env}'} for exp in experiments]
-else: experiments = [{**exp, 'env': e.name, 'path': e} for exp in experiments for e in subdirs(exp['path'])]
-
-# Third layer: Hyperparameters & number of runs
-hp = lambda name: dict(zip(['chi','omega','kappa'], parse('{:.1f}_{:.1f}_{:d}', name) or []))
-experiments = [{ **exp, 'path': e.path, **hp(e.name), 'runs': len(subdirs(e)) }
-  for exp in experiments if os.path.isdir(exp['path']) for e in subdirs(exp['path'])
-]
-
-print('Done scanning for logfiles')
-
-# Fourth layer: tb files 
-# experiments = [ { **exp, 'tb': EventAccumulator(exp['path']).Reload() } for exp in experiments]
-experiments = [{ **exp, 'tb': [ EventAccumulator(p.path).Reload() for p in subdirs(exp['path']) ] } for exp in tqdm(experiments)]
-
-print('Done loading for experiments')
+# Fetch experiment logfiles
+experiments = fetch_experiments(args.base, args.alg, args.env)
 
 
 # Helper function to calculate mean and confidence interval for list of DataFrames
@@ -132,7 +112,6 @@ layout = go.Layout(margin=dict(l=8, r=8, t=8, b=8), width=1500, height=600, font
 
 # Training Episodes
 # go.Layout( margin=dict(l=8, r=8, t=8, b=8), width=1000, height=400, font=dict(size=24), xaxis=dict(tickfont=dict(size=32))
-)
 
 
 # , shapes=[reward_threshold]
