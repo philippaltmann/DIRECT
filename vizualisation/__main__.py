@@ -2,14 +2,10 @@
 Example commands:
 python -m vizualisation experiments/hyperparameters/sa -m kappa
 """
-import argparse; import os; from parse import parse
-import numpy as np; import pandas as pd
+import argparse; import os; 
 import plotly.graph_objects as go
-from tqdm import tqdm
 
-from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
-
-from common.plotting import fetch_experiments
+from common.plotting import fetch_experiments, calculate_metrics
 
 # Process commandline arguments 
 parser = argparse.ArgumentParser()
@@ -21,38 +17,18 @@ parser.add_argument('-m', dest='mode', default='benchmark', help='Mode. (Benchma
 
 args = parser.parse_args()
 
-print(args.mode)
-
 # Metrics to be plotted (=> one plot per entry \w one graph per experiment)
-metrics = [
-  ('Reward', 'metrics/validation_reward'),
-  # ('Return', 'raw/rewards_return-100')
-]
+metrics = [ ('Reward', 'metrics/validation_reward') ] # ('Return', 'raw/rewards_return-100')
+
 #                      Red         Orange     Green          Blue        Purple 
 color_lookup = {"PPO": 340, "A2C": 40, "SIL": 130, "DIRECT": 210, "DQN": 290 }
 
 # Fetch experiment logfiles
 experiments = fetch_experiments(args.base, args.alg, args.env)
+experiments = calculate_metrics(args.base, args.alg, args.env)
+# experiments = group_experiments(args.base, args.alg, args.env)
 
 
-# Helper function to calculate mean and confidence interval for list of DataFrames
-def data2ci(data):
-  training_steps = [d.index[-1] for d in data]
-  for d in data: d.loc[np.max(training_steps)] = float(d.tail(1)['Data'])
-  mean = pd.concat(data, axis=1, sort=False).bfill().mean(axis=1)
-  std = pd.concat(data, axis=1, sort=False).bfill().std(axis=1)
-  confidence = pd.concat([mean+0.5*std, (mean-0.5*std).iloc[::-1]])
-  return {'mean': mean, 'confidence': confidence}
-
-
-# Helper to convert tb Scalar data to pd DataFrame & pack Dataframes for given metrics 
-columns, index, exclude = ['Walltime', 'Step', 'Data'], 'Step', ['Walltime']
-extract_data = lambda data: pd.DataFrame.from_records(data, columns=columns, index=index, exclude=exclude)
-calc_metrics = lambda experiment, key: data2ci([extract_data(tb.Scalars(key)) for tb in experiment['tb']])
-process_data = lambda experiment: { name: calc_metrics(experiment, key) for name, key in metrics }
-
-# Process given experiments
-experiments = [{**exp, 'data': process_data(exp) } for exp in experiments]
 
 # Generlate list of Envornments -> 1 plot per env&metric \w 1line per alg avg over all runs
 envs = list(dict.fromkeys([exp['env'] for exp in experiments]))

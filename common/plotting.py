@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np; import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.tri import Triangulation
 
@@ -74,17 +74,40 @@ def fetch_experiments(base='./results', alg=None, env=None):
   return experiments
 
 
-  forms = {'algorithm':'{}', 'env':'{}', 'chi': 'Χ: {:.1f}', 'omega':  'ω: {:.1f}', 'kappa': 'κ: {:d}'}
-  label = lambda exp, excl=[]: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key not in args.groupby + excl])
-  title = lambda exp: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key in args.groupby])
-  # [print(title(exp) + " | " + label(exp)) for exp in experiments]
+def data2metrics(data):
+  """Helper function to calculate mean and confidence interval for list of DataFrames"""
+  steps = [d.index[-1] for d in data]
+  conc = pd.concat(data, axis=1, ignore_index=False, sort=True)
+  mean = conc.mean(axis=1); std = conc.std(axis=1)
+  confidence = pd.concat([mean+0.5*std, (mean-0.5*std).iloc[::-1]])
+  return {'mean': mean, 'confidence': confidence, 'steps': steps}
 
-  # Create product of all occuances of specified groups, zip with group titles & add size and a counter of visited group items
-  options = list(itertools.product(*[ list(dict.fromkeys([exp[group] for exp in experiments])) for group in args.groupby ]))
-  ingroup = lambda experiment, group: all([experiment[k] == v for k,v in zip(args.groupby, group)])
-  options = list(zip(options, [[ title(exp) for exp in experiments if ingroup(exp,group)] for group in options ]))
-  options = [(group, [0, len(titles)], titles[0]) for group, titles in options]
-  # options = list(zip(options, [ (0, len([ 1 for exp in experiments if ingroup(exp,group)])) for group in options ]))
-  # print(f"{args.groupby} ∈ {options}")
-  # [print(group) for group in options]
+
+def calculate_metrics(experiments, metrics):
+  """Given a set of experiments and metrics, calculate ci data"""
+  # Helper to convert tb Scalar data to pd DataFrame & pack Dataframes for given metrics 
+  columns, index, exclude = ['Walltime', 'Step', 'Data'], 'Step', ['Walltime']
+  extract_data = lambda data: pd.DataFrame.from_records(data, columns=columns, index=index, exclude=exclude)
+  calc_metrics = lambda exp, key: data2metrics([extract_data(tb.Scalars(key)) for tb in exp['tb']])
+  process_data = lambda exp: { name: calc_metrics(exp, key) for name, key in metrics }
+
+  # Process given experiments
+  return [{**exp, 'data': process_data(exp) } for exp in experiments]
+
+
+
+
+# forms = {'algorithm':'{}', 'env':'{}', 'chi': 'Χ: {:.1f}', 'omega':  'ω: {:.1f}', 'kappa': 'κ: {:d}'}
+# label = lambda exp, excl=[]: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key not in args.groupby + excl])
+# title = lambda exp: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key in args.groupby])
+# # [print(title(exp) + " | " + label(exp)) for exp in experiments]
+
+# # Create product of all occuances of specified groups, zip with group titles & add size and a counter of visited group items
+# options = list(itertools.product(*[ list(dict.fromkeys([exp[group] for exp in experiments])) for group in args.groupby ]))
+# ingroup = lambda experiment, group: all([experiment[k] == v for k,v in zip(args.groupby, group)])
+# options = list(zip(options, [[ title(exp) for exp in experiments if ingroup(exp,group)] for group in options ]))
+# options = [(group, [0, len(titles)], titles[0]) for group, titles in options]
+# # options = list(zip(options, [ (0, len([ 1 for exp in experiments if ingroup(exp,group)])) for group in options ]))
+# # print(f"{args.groupby} ∈ {options}")
+# # [print(group) for group in options]
 
