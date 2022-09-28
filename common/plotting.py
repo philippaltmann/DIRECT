@@ -4,7 +4,7 @@ from matplotlib.tri import Triangulation
 
 import os; import itertools; from parse import parse; from tqdm import tqdm
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator as EA
-
+from os import path
 
 def triangle_heatmap(data, min=0, max=1):
   # TODO: automatic min max scaling 
@@ -43,11 +43,13 @@ def triangle_heatmap(data, min=0, max=1):
   return figure
 
 
-def fetch_experiments(base='./results', alg=None, env=None):
+def fetch_experiments(base='./results', alg=None, env=None, metrics=[], load_csv=False, dump_csv=False):
   """Loads and structures all tb log files Given:
   :param base_path (str):
   :param env (optional): the environment to load 
   :param alg (optional): the algorithm to load 
+  :param metrics: list of (Name, Tag) tuples of metrics to load
+  :param save_csv: save loaded experiments to csv
   Returns: list with dicts of experiments 
   """
   # Helper to fetch all relevant folders 
@@ -67,47 +69,18 @@ def fetch_experiments(base='./results', alg=None, env=None):
     for exp in tqdm(experiments) if os.path.isdir(exp['path']) for e in subdirs(exp['path'])
   ]
 
-  
-  print(f"Loading experiment logfiles from {base}")  # Fourth layer: tb files 
-  experiments = [{**exp,'tb': [ EA(p.path).Reload() for p in subdirs(exp['path'])]} for exp in tqdm(experiments)]
-
-  return experiments
-
-
-def data2metrics(data):
-  """Helper function to calculate mean and confidence interval for list of DataFrames"""
-  steps = [d.index[-1] for d in data]
-  conc = pd.concat(data, axis=1, ignore_index=False, sort=True)
-  mean = conc.mean(axis=1); std = conc.std(axis=1)
-  confidence = pd.concat([mean+0.5*std, (mean-0.5*std).iloc[::-1]])
-  return {'mean': mean, 'confidence': confidence, 'steps': steps}
-
-
-def calculate_metrics(experiments, metrics):
-  """Given a set of experiments and metrics, calculate ci data"""
-  # Helper to convert tb Scalar data to pd DataFrame & pack Dataframes for given metrics 
-  columns, index, exclude = ['Walltime', 'Step', 'Data'], 'Step', ['Walltime']
-  extract_data = lambda data: pd.DataFrame.from_records(data, columns=columns, index=index, exclude=exclude)
-  calc_metrics = lambda exp, key: data2metrics([extract_data(tb.Scalars(key)) for tb in exp['tb']])
-  process_data = lambda exp: { name: calc_metrics(exp, key) for name, key in metrics }
+  print(f"Loading experiment logfiles from {metrics}")  # Fourth layer: tb files   
+  csv = lambda run, name: path.isfile(f'{run.path}/{name}.csv')
+  extract_args = {'columns': ['Time', 'Step', 'Data'], 'index': 'Step', 'exclude': ['Time']}
+  extract_data = lambda run, key : pd.DataFrame.from_records(EA(run.path).Reload().Scalars(key), **extract_args)
+  extract_csvs = lambda run, name: pd.read_csv(f'{run.path}/{name}.csv').set_index('Step')
+  load_scalars = lambda run, name, key: extract_csvs(run, name) if csv(run, name) else extract_data(run, key)
+  process_data = lambda exp, name, key: [ load_scalars(run, name, key) for run in tqdm(subdirs(exp['path'])) ] 
 
   # Process given experiments
-  return [{**exp, 'data': process_data(exp) } for exp in experiments]
+  experiments = [{**exp, 'data': { name: process_data(exp, name, key) for name, key in metrics } } for exp in tqdm(experiments)]
 
+  dump_experiment = lambda data, runs: [ df.to_csv(f'{r.path}/{m}.csv') for m, d in data for r, df in zip(runs, d) ]
+  if dump_csv: [dump_experiment(exp['data'].items(), subdirs(exp['path'])) for exp in experiments]
 
-
-
-# forms = {'algorithm':'{}', 'env':'{}', 'chi': 'Χ: {:.1f}', 'omega':  'ω: {:.1f}', 'kappa': 'κ: {:d}'}
-# label = lambda exp, excl=[]: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key not in args.groupby + excl])
-# title = lambda exp: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key in args.groupby])
-# # [print(title(exp) + " | " + label(exp)) for exp in experiments]
-
-# # Create product of all occuances of specified groups, zip with group titles & add size and a counter of visited group items
-# options = list(itertools.product(*[ list(dict.fromkeys([exp[group] for exp in experiments])) for group in args.groupby ]))
-# ingroup = lambda experiment, group: all([experiment[k] == v for k,v in zip(args.groupby, group)])
-# options = list(zip(options, [[ title(exp) for exp in experiments if ingroup(exp,group)] for group in options ]))
-# options = [(group, [0, len(titles)], titles[0]) for group, titles in options]
-# # options = list(zip(options, [ (0, len([ 1 for exp in experiments if ingroup(exp,group)])) for group in options ]))
-# # print(f"{args.groupby} ∈ {options}")
-# # [print(group) for group in options]
-
+  return experiments
