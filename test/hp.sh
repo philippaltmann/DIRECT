@@ -11,7 +11,7 @@ for run in 1 2 3 4 5 6 7 8; do
     for omega in 1.0 2.0 4.0 0.5 0.25; do
       for kappa in 256 512 1024 2048 4096; do
         echo "Running DIRECT $chi-$omega-$kappa"
-        python -m run DIRECT -ts 10e5 --chi $chi --kappa $kappa --omega $omega --env $ENV --path $BASE &> "$OUT/DIRECT_$chi-$omega-$kappa_$(date +%s).out" &
+        python -m run DIRECT -ts 10e5 --chi $chi --kappa $kappa --omega $omega --env $ENV --path $BASE &> "$OUT/DIRECT_$chi-$omega-$kappa""_""$run.out" &
         sleep 1
       done
       sleep 1h
