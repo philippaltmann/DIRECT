@@ -25,7 +25,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     if self.normalize: self.env = VecNormalize(self.env)
     self._naming = {'l': 'length-100', 'r': 'return-100', 's': 'safety-100'}; self._custom_scalars = {}
     self.get_actions = lambda s: self.policy.get_distribution(s).distribution.probs.cpu().detach().numpy()
-    self.heatmap_iterations = { 'policy': lambda _, s, a, r: self.get_actions(obs(s, self.device))[0][a] }
+    self.heatmap_iterations = { 'policy': (lambda _, s, a, r: self.get_actions(obs(s, self.device))[0][a], (0,1)) }
     super(TrainableAlgorithm, self)._setup_model()
     self.writer, self._registered_ci = SummaryWriter(log_dir=self.path) if self.path else None, []
     print("+-------------------------------------------------------+\n"\
@@ -122,11 +122,14 @@ class TrainableAlgorithm(BaseAlgorithm):
     assert not len(hp_mdd), "Skipped writing hparams of multi-dimensional data"
     return {**hp_dis, **hp_num, **hp_str, **{'env_name': self.env.get_attr('env_name')[0]}}
   
-  def save(self, **kwargs) -> None: 
-    kwargs['path'] = self.path + "model/train"; super(TrainableAlgorithm, self).save(**kwargs)
+  def save(self, name="model/train", **kwargs) -> None: 
+    kwargs['path'] = self.path + name; super(TrainableAlgorithm, self).save(**kwargs)
 
   @classmethod
   def load(cls, envs: Dict[str,VecEnv], path, **kwargs) -> "TrainableAlgorithm":
-    kwargs['env'] = envs['train']; kwargs['envs'] = envs; path = path + "model/train"; kwargs['path'] = path
-    assert os.path.exists(path+'.zip'), f"Attempting to load a model from {path} that does not exist"
-    return super(TrainableAlgorithm, cls).load(**kwargs)
+    kwargs['env'] = envs['train']; kwargs['envs'] = envs; load = path + "model/train"
+    assert os.path.exists(load+'.zip'), f"Attempting to load a model from {path} that does not exist"
+    model = super(TrainableAlgorithm, cls).load(load, **kwargs)
+    model.path = path+'reload/'; model.writer = SummaryWriter(log_dir=model.path)
+    model.num_timesteps -= model.num_timesteps%(model.n_steps * model.n_envs)
+    return model
