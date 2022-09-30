@@ -48,6 +48,7 @@ print(f"Stopping training at threshold {stop_on_reward}") if stop_on_reward else
 #Create, train & save model 
 args = {'envs': envs, 'path': path, 'seed': seed, **args}
 load = args.pop('load', False) #; print(f"{'load' if load else 'creat'}ing model  with args {args}")
+if load: args['suffix'] = f"reload-{env['spec']}/"
 model:TrainableAlgorithm = algorithm.load(**args) if load else algorithm(**args)
 model.learn(total_timesteps=timesteps, stop_on_reward=stop_on_reward, reset_num_timesteps = not load)
 if path: model.save()
