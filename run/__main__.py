@@ -1,10 +1,11 @@
-import argparse; import setuptools; import os; import random
+import argparse
+from numpy import save; import setuptools; import os; import random
 from safety_env import factory; from common import TrainableAlgorithm
-from direct import DIRECT; from baselines import A2C, DQN, PPO, VPG
+from baselines import *
 parser = argparse.ArgumentParser()
 
 # General Arguments
-parser.add_argument('algorithm', type=str, help='The algorithm to use', choices=['DIRECT', 'A2C', 'DQN', 'PPO', 'VPG'])
+parser.add_argument('algorithm', type=str, help='The algorithm to use', choices=ALGS)
 parser.add_argument( '--env', nargs='+', default=['DistributionalShift', 0, 4, 1], metavar="Environment",
   help='The name and spec and of the safety environments to train and test the agent. Usage: --env NAME, CONFIG, N_TRAIN, N_TEST')
 parser.add_argument('-s', dest='seed', type=int, help='The random seed. If not specified a free seed [0;999] is randomly chosen')
@@ -19,8 +20,8 @@ parser.add_argument('--reward-threshold', type=float, help='Threshold for 100 ep
 
 # DIRECT Specific Arguments  
 parser.add_argument('--chi', type=float, default=1.0, help='The mixture parameter determining the mixture of real and discriminative reward. (default: 1.0)')
-parser.add_argument('--kappa', type=int, default=512, help='Number of trajectories to be stored in the direct buffer. (default: 512)')
-parser.add_argument('--omega', type=float, default=1.0, help='The frequency to perform discriminator updates in relation to policy updates. (default: 1/1)')
+parser.add_argument('--kappa', type=int, default=2048, help='Number of trajectories to be stored in the direct buffer. (default: 2048)')
+parser.add_argument('--omega', type=float, default=0.5, help='The frequency to perform discriminator updates in relation to policy updates. (default: 1/2 )')
 
 # Policy Optimization Arguments
 parser.add_argument('--n-steps', type=int, help='The length of rollouts to perform policy updates on')
@@ -31,9 +32,9 @@ if args['algorithm'] != "DIRECT": [args.pop(key) for key in ['chi', 'kappa', 'om
 hp_suffix = f"{args['chi']}_{args['omega']}_{args['kappa']}" if args['algorithm'] == "DIRECT" else 'baseline'
 
 # Get path & seed, create model & envs
-algorithm = eval(args.pop('algorithm')); model = None
+algorithm = eval(args.pop('algorithm')); model = None; path = args.pop('path')
 env = dict(zip(['name', 'spec', 'n_train', 'n_test'], args.pop('env')))
-base_path = lambda seed: f"{args.path}/{algorithm.__name__}/{env['name']}/{hp_suffix}/{seed}/"
+base_path = lambda seed: f"{path}/{algorithm.__name__}/{env['name']}/{hp_suffix}/{seed}/"
 gen_seed = lambda s=random.randint(0, 999): s if not os.path.isdir(base_path(s)) else gen_seed()
 seed = args.pop('seed', gen_seed()); path = base_path(seed); envs = factory(seed, **env)
 if args.pop('test'): path = None
