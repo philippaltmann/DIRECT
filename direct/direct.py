@@ -11,13 +11,14 @@ class DIRECT(TrainableAlgorithm, PPO):
   :param kappa: (int) k-Best Trajectories to be stored in the reward buffer
   :param omega: (float) The frequency to perform updates to the discriminator. 
       [1/1 results in concurrent training of policy and discriminator]
+      [1/2 results in 10 (n_updates) policy and 5 discriminator updates per rollout]
   :param chi: (float): The mixture parameter determining the mixture of real and discriminative reward
       [1 => purely discriminateive reward, 0 => no discriminateive reward, just real reward (pure PPO)]
   :param disc_kwargs: (dict) parameters to be passed the discriminator on creation
       see Discriminator class for full description
   :param **kwargs: further parameters will be passed to TrainableAlgorithm, then PPO"""
 
-  def __init__(self, chi:float=1., kappa:int=512, omega:float=1/1, disc_kwargs:Dict[str,Any]={}, **kwargs):
+  def __init__(self, chi:float=1., kappa:int=2048, omega:float=1/2, disc_kwargs:Dict[str,Any]={}, **kwargs):
     self.buffer = None
     self.chi = chi; assert chi <= 1.0
     self.kappa = kappa; assert kappa > 0
@@ -27,9 +28,9 @@ class DIRECT(TrainableAlgorithm, PPO):
 
   def _setup_model(self) -> None: 
     super(DIRECT, self)._setup_model(); self._naming.update({'d': 'direct-100'}) 
-    self.heatmap_iterations.update( {'direct': lambda _, s, a, r: self.discriminator.reward(
+    self.heatmap_iterations.update( {'direct': (lambda _, s, a, r: self.discriminator.reward(
       DirectBuffer.prepare(self.buffer, [s], [a], [r()])
-    ).flatten()[0]})
+    ).flatten()[0], (None, None))})
     self.disc_kwargs.setdefault('batch_size', self.batch_size) 
     self.buffer = DirectBuffer(buffer_size=self.kappa, parent=self)
     self.discriminator = Discriminator(chi=self.chi, parent=self, **self.disc_kwargs).to(self.device)
