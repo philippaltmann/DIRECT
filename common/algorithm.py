@@ -126,10 +126,10 @@ class TrainableAlgorithm(BaseAlgorithm):
     kwargs['path'] = self.path + name; super(TrainableAlgorithm, self).save(**kwargs)
 
   @classmethod
-  def load(cls, envs: Dict[str,VecEnv], path, **kwargs) -> "TrainableAlgorithm":
+  def load(cls, envs: Dict[str,VecEnv], path, suffix='reload/', **kwargs) -> "TrainableAlgorithm":
     kwargs['env'] = envs['train']; kwargs['envs'] = envs; load = path + "model/train"
     assert os.path.exists(load+'.zip'), f"Attempting to load a model from {path} that does not exist"
     model = super(TrainableAlgorithm, cls).load(load, **kwargs)
-    model.path = path+'reload/'; model.writer = SummaryWriter(log_dir=model.path)
+    model.path = path+suffix; model.writer = SummaryWriter(log_dir=model.path)
     model.num_timesteps -= model.num_timesteps%(model.n_steps * model.n_envs)
     return model
