@@ -6,7 +6,7 @@ ENV="DistributionalShift-Sparse"
 BASE="experiments/1-HP/full"
 OUT="experiments/logfiles/direct"
 
-for run in 1 2 3 4 5 6 7; do
+for run in 1 2 3 4 5 6 7 8; do
   for chi in 1.0; do #0.75 0.5 0.25 0.0
     for omega in 1.0 2.0 4.0 0.5 0.25; do
       for kappa in 256 512 1024 2048 4096; do
