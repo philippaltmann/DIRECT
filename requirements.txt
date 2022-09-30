@@ -6,3 +6,6 @@ stable-baselines3==1.4.0
 moviepy
 tensorboard
 torch==1.10.1+cu113
+parse 
+plotly
+kaleido
