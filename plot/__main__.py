@@ -1,12 +1,12 @@
 """
 Example commands:
-python -m vizualisation experiments/1-HP/sar -g algorithm env omega
-python -m vizualisation experiments/1-HP/sar
+python -m plot experiments/1-HP/sar -g algorithm env omega
+python -m plot experiments/1-HP/sar
 
 TODO: consider smoothing?
 """
 import argparse; import os; 
-from common.metrics import *
+from plot.metrics import *
 from common.plotting import * 
 
 # Process commandline arguments 
