@@ -22,7 +22,8 @@ def triangle_heatmap(data, vmin=0, vmax=1):
   square = lambda c,r: Triangulation(*points(c,r).T, triangles)
   
   flat = [v for row in data for col in row for v in col if v is not None]
-  vmin = vmin or min(flat); vmax = vmax or max(flat)
+  if vmin!=0: vmin = vmin or min(flat) 
+  if vmax!=0: vmax = vmax or max(flat)
   plot = lambda v,c,r: ax.tripcolor(square(c,r), v, cmap='Spectral', vmin=vmin, vmax=vmax, ec='w') #, RdYlGn
   center = vmin + (vmax - vmin) / 2; width = abs(vmin) + abs(vmax)
   lcolor = lambda v: 'k' if center - 0.3 * width < v < center + 0.3 * width else 'w'
