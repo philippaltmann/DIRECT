@@ -12,13 +12,14 @@ import platform; import stable_baselines3 as sb3; import gym
 from .evaluation import EvaluationCallback
 
 class TrainableAlgorithm(BaseAlgorithm):
-  def __init__(self, envs:Optional[Dict[str,VecEnv]]=None, normalize:bool=False, policy:Union[str,Type[ActorCriticPolicy]]="MlpPolicy", path:Optional[str]=None, **kwargs):
+  def __init__(self, envs:Optional[Dict[str,VecEnv]]=None, normalize:bool=False, policy:Union[str,Type[ActorCriticPolicy]]="MlpPolicy", path:Optional[str]=None, silent=False, **kwargs):
     """ :param env: The environment to learn from (if registered in Gym, can be str)
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...) defaults to MlpPolicy
     :param normalize: whether to use normalized observations, default: False
     :param path: (str) the log location for tensorboard (if None, no logging) """
     if envs: kwargs['env'] = envs['train']
-    self.envs, self.normalize, self.path, self.progress_bar, self.eval_frequency = envs, normalize, path, None, None
+    self.envs, self.normalize, self.path, self.silent = envs, normalize, path, silent
+    self.eval_frequency, self.progress_bar = None, None
     super().__init__(policy=policy, verbose=0, **kwargs)
     
   def _setup_model(self) -> None:
@@ -28,7 +29,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     self.heatmap_iterations = { 'policy': (lambda _, s, a, r: self.get_actions(obs(s, self.device))[0][a], (0,1)) }
     super(TrainableAlgorithm, self)._setup_model()
     self.writer, self._registered_ci = SummaryWriter(log_dir=self.path) if self.path else None, []
-    print("+-------------------------------------------------------+\n"\
+    if not self.silent: print("+-------------------------------------------------------+\n"\
       f"| System: {platform.platform()} |\n| Version: {platform.version()} |\n" \
       f"| GPU: {f'Enabled, version {th.version.cuda} on {th.cuda.get_device_name(0)}' if th.cuda.is_available() else'Disabled'} |\n"\
       f"| Python: {platform.python_version()} | PyTorch: {th.__version__} | Numpy: {np.__version__} |\n" \
@@ -41,7 +42,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     E.g. replay buffers are skipped by default as they take up a lot of space.
     PyTorch variables should be excluded with this so they can be stored with ``th.save``.
     :return: List of parameters that should be excluded from being saved with pickle. """
-    return super(TrainableAlgorithm, self)._excluded_save_params() + ['get_actions', 'heatmap_iterations', '_naming', '_custom_scalars', '_registered_ci', 'envs', 'writer', 'progress_bar']
+    return super(TrainableAlgorithm, self)._excluded_save_params() + ['get_actions', 'heatmap_iterations', '_naming', '_custom_scalars', '_registered_ci', 'envs', 'writer', 'progress_bar', 'silent']
 
   def should_log(self) -> bool: return self.eval_frequency is not None and self.num_timesteps % self.eval_frequency == 0  # Returns if evaluation should be logged
 
@@ -58,7 +59,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     hps = self.get_hparams(); hps.pop('seed'); hps.pop('num_timesteps');  # hp = f"(χ={self.chi}, κ={self.kappa}, ω={self.omega})" if alg=="DIRECT" else ""
     hyper = f"with: χ={hps.pop('chi')}, κ={hps.pop('kappa')}, ω={hps.pop('omega')}" if alg == "DIRECT" else ""
     disc = f"with {hps.pop('n_epochs')} / {hps.pop('discriminator_n_updates')} updates in {hps.pop('batch_size')} / {hps.pop('discriminator_batch_size')} batches [Policy/Discriminator] on {hps.pop('n_steps')} step rollouts" if alg == "DIRECT" else ""
-    print(f"Training {alg} {hyper} | in {hps.pop('env_name')} (x{hps.pop('n_envs')}) {disc}") 
+    if not self.silent: print(f"Training {alg} {hyper} | in {hps.pop('env_name')} (x{hps.pop('n_envs')}) {disc}") 
     self.progress_bar = tqdm(total=total, unit="steps", postfix=[0,""], bar_format="{desc}[R: {postfix[0]:4.2f}][{bar}]({percentage:3.0f}%)[{n_fmt}/{total_fmt}@{rate_fmt}]") #desc=f"Training {alg}{hp}",
     self.progress_bar.update(self.num_timesteps);
     model = super(TrainableAlgorithm, self).learn(total_timesteps=total_timesteps, callback=callback, **kwargs)
