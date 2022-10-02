@@ -12,19 +12,16 @@ class EvaluationCallback(BaseCallback):
   :param eval_envs: A dict containing environments for testing the current model.
   :param stop_on_reward: Whether to use early stopping. Defaults to True
   :param reward_threshold: The reward threshold to stop at."""
-  def __init__(self, model: BaseAlgorithm, eval_envs: dict, stop_on_reward:float=None, eval_frequency=2048):
+  def __init__(self, model: BaseAlgorithm, eval_envs: dict, stop_on_reward:float=None):
     super(EvaluationCallback, self).__init__()
     self.model = model; self.eval_envs = eval_envs; self.writer: SummaryWriter = self.model.writer
     self.stop_on_reward, self.continue_training = stop_on_reward, True
-    stepsize = self.model.n_steps * self.model.n_envs 
-    eval_frequency *= self.model.n_envs 
-    self.eval_frequency = eval_frequency // stepsize * stepsize or eval_frequency
 
   def _on_rollout_end(self) -> None:
     if self.writer == None: return 
     mean_return = np.mean([ep_info["r"] for ep_info in self.model.ep_info_buffer])
     if (self.stop_on_reward and mean_return >= self.stop_on_reward) or not self.continue_training: self.continue_training = False
-    if self.model.num_timesteps % self.eval_frequency == 0: self.evaluate()
+    if self.model.should_log(): self.evaluate()
 
   def _on_step(self) -> bool: 
     """ Write timesteps to info & stop on reward threshold"""
@@ -54,5 +51,6 @@ class EvaluationCallback(BaseCallback):
     metrics[f'metrics/{label}_performance'] = env.env_method('get_performance')[0]
     if write_video: self.writer.add_video(label, retreive(video_buffer), step, FPS) 
     heatmap_data = {f'{key}_heatmap/{label}': (env.envs[0].iterate(f), args) for key, (f,args) in self.model.heatmap_iterations.items()}
-    [self.writer.add_figure(key, triangle_heatmap(data, *args), step) for key, (data, args) in heatmap_data.items()] # Create & write tringle heatmap plots
+    [self.writer.add_figure(key, triangle_heatmap(data, *args), step) for key, (data, args) in heatmap_data.items()]  # Create & write tringle heatmap plots
+    self.writer.flush()
     return metrics

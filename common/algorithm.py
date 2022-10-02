@@ -18,7 +18,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     :param normalize: whether to use normalized observations, default: False
     :param path: (str) the log location for tensorboard (if None, no logging) """
     if envs: kwargs['env'] = envs['train']
-    self.envs, self.normalize, self.path, self.progress_bar = envs, normalize, path, None
+    self.envs, self.normalize, self.path, self.progress_bar, self.eval_frequency = envs, normalize, path, None, None
     super().__init__(policy=policy, verbose=0, **kwargs)
     
   def _setup_model(self) -> None:
@@ -43,15 +43,18 @@ class TrainableAlgorithm(BaseAlgorithm):
     :return: List of parameters that should be excluded from being saved with pickle. """
     return super(TrainableAlgorithm, self)._excluded_save_params() + ['get_actions', 'heatmap_iterations', '_naming', '_custom_scalars', '_registered_ci', 'envs', 'writer', 'progress_bar']
 
-  def learn(self, total_timesteps: int, stop_on_reward:float=None, **kwargs) -> "TrainableAlgorithm":
+  def should_log(self) -> bool: return self.eval_frequency is not None and self.num_timesteps % self.eval_frequency == 0  # Returns if evaluation should be logged
+
+  def learn(self, total_timesteps: int, stop_on_reward:float=None, eval_frequency=2048, **kwargs) -> "TrainableAlgorithm":
     """ Learn a policy
     :param total_timesteps: The total number of samples (env steps) to train on
     :param stop_on_reward: Threshold of the mean 100 episode return to terminate training.
     :param **kwargs: further aguments are passed to the parent classes 
     :return: the trained model """
     callback = EvaluationCallback(self, self.envs['test'], stop_on_reward=stop_on_reward)
-    if 'callback' in kwargs: callback = CallbackList([kwargs.pop('callback'), callback])
-    alg = self.__class__.__name__; total = self.num_timesteps+total_timesteps
+    if 'callback' in kwargs: callback = CallbackList([kwargs.pop('callback'), callback])    
+    alg = self.__class__.__name__; total = self.num_timesteps+total_timesteps; stepsize = self.n_steps * self.n_envs;
+    if eval_frequency is not None: self.eval_frequency = eval_frequency * self.n_envs // stepsize * stepsize or eval_frequency * self.n_envs
     hps = self.get_hparams(); hps.pop('seed'); hps.pop('num_timesteps');  # hp = f"(χ={self.chi}, κ={self.kappa}, ω={self.omega})" if alg=="DIRECT" else ""
     hyper = f"with: χ={hps.pop('chi')}, κ={hps.pop('kappa')}, ω={hps.pop('omega')}" if alg == "DIRECT" else ""
     disc = f"with {hps.pop('n_epochs')} / {hps.pop('discriminator_n_updates')} updates in {hps.pop('batch_size')} / {hps.pop('discriminator_batch_size')} batches [Policy/Discriminator] on {hps.pop('n_steps')} step rollouts" if alg == "DIRECT" else ""
@@ -68,7 +71,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     self.progress_bar.update(self.n_steps * self.env.num_envs); summary, step = {}, self.num_timesteps 
 
     super(TrainableAlgorithm, self).train(**kwargs) # Train PPO & Write Training Stats 
-    if self.writer == None: return 
+    if self.writer == None or not self.should_log(): return 
 
     # Get infos from episodes & record rewards confidence intervals to summary 
     epdata = {name: {ep['t']: ep[key] for ep in self.ep_info_buffer} for key,name in self._naming.items()}
@@ -126,10 +129,10 @@ class TrainableAlgorithm(BaseAlgorithm):
     kwargs['path'] = self.path + name; super(TrainableAlgorithm, self).save(**kwargs)
 
   @classmethod
-  def load(cls, envs: Dict[str,VecEnv], path, suffix='reload/', **kwargs) -> "TrainableAlgorithm":
-    kwargs['env'] = envs['train']; kwargs['envs'] = envs; load = path + "model/train"
-    assert os.path.exists(load+'.zip'), f"Attempting to load a model from {path} that does not exist"
+  def load(cls, load, envs: Dict[str,VecEnv], path, **kwargs) -> "TrainableAlgorithm":
+    kwargs['env'] = envs['train']; kwargs['envs'] = envs; load = f"{load}/model/train"
+    assert os.path.exists(load+'.zip'), f"Attempting to load a model from {load} that does not exist"
     model = super(TrainableAlgorithm, cls).load(load, **kwargs)
-    model.path = path+suffix; model.writer = SummaryWriter(log_dir=model.path)
+    model.path = path; model.writer = SummaryWriter(log_dir=model.path)
     model.num_timesteps -= model.num_timesteps%(model.n_steps * model.n_envs)
     return model
