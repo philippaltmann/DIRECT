@@ -3,7 +3,9 @@ from stable_baselines3.dqn import DQN as StableDQN
 
 class DQN(TrainableAlgorithm, StableDQN):
   """A Trainable extension to DQN"""
-  def __init__(self, **kwargs): super(DQN, self).__init__(**kwargs); self.n_steps = self.train_freq[0]
+  def __init__(self, **kwargs): 
+    super(DQN, self).__init__(**kwargs); 
+    self.n_steps = self.train_freq if type(self.train_freq) == int else self.train_freq[0]
 
   def _setup_model(self) -> None:
     super(DQN, self)._setup_model()
