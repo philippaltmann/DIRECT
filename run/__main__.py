@@ -9,7 +9,8 @@ parser.add_argument('algorithm', type=str, help='The algorithm to use', choices=
 parser.add_argument( '--env', nargs='+', default=['DistributionalShift', 0, 4, 1], metavar="Environment",
   help='The name and spec and of the safety environments to train and test the agent. Usage: --env NAME, CONFIG, N_TRAIN, N_TEST')
 parser.add_argument('-s', dest='seed', type=int, help='The random seed. If not specified a free seed [0;999] is randomly chosen')
-parser.add_argument('--load', help='Whether to load a model or train a new one.', action='store_true')
+# parser.add_argument('--load', help='Whether to load a model or train a new one.', action='store_true')
+parser.add_argument('--load', type=str, help='Path to load the model.')
 parser.add_argument('--test', help='Run in test mode (dont write log files).', action='store_true')
 parser.add_argument('--path', default='results', help='The base path, defaults to `results`')
 
@@ -34,7 +35,7 @@ hp_suffix = f"{args['chi']}_{args['omega']}_{args['kappa']}" if args['algorithm'
 # Get path & seed, create model & envs
 algorithm = eval(args.pop('algorithm')); model = None; path = args.pop('path')
 env = dict(zip(['name', 'spec', 'n_train', 'n_test'], args.pop('env')))
-base_path = lambda seed: f"{path}/{algorithm.__name__}/{env['name']}/{hp_suffix}/{seed}/"
+base_path = lambda seed, base=path: f"{base}/{algorithm.__name__}/{env['name']}/{hp_suffix}/{seed}" # /
 gen_seed = lambda s=random.randint(0, 999): s if not os.path.isdir(base_path(s)) else gen_seed()
 seed = args.pop('seed', gen_seed()); path = base_path(seed); envs = factory(seed, **env)
 if args.pop('test'): path = None
@@ -47,8 +48,7 @@ print(f"Stopping training at threshold {stop_on_reward}") if stop_on_reward else
 
 #Create, train & save model 
 args = {'envs': envs, 'path': path, 'seed': seed, **args}
-load = args.pop('load', False) #; print(f"{'load' if load else 'creat'}ing model  with args {args}")
-if load: args['suffix'] = f"reload-{env['spec']}/"
-model:TrainableAlgorithm = algorithm.load(**args) if load else algorithm(**args)
+load = args.pop('load', False); load = base_path(seed,load) if load else False
+model:TrainableAlgorithm = algorithm.load(load=load, **args) if load else algorithm(**args)
 model.learn(total_timesteps=timesteps, stop_on_reward=stop_on_reward, reset_num_timesteps = not load)
 if path: model.save()
