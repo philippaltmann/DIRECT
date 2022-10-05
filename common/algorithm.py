@@ -126,7 +126,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     assert not len(hp_mdd), "Skipped writing hparams of multi-dimensional data"
     return {**hp_dis, **hp_num, **hp_str, **{'env_name': self.env.get_attr('env_name')[0]}}
   
-  def save(self, name="model/train", **kwargs) -> None: 
+  def save(self, name="/model/train", **kwargs) -> None: 
     kwargs['path'] = self.path + name; super(TrainableAlgorithm, self).save(**kwargs)
 
   @classmethod
