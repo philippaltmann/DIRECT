@@ -1,8 +1,15 @@
 import os; from os import path; import itertools; from parse import parse; from tqdm import tqdm
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator as EA
 import pandas as pd; import numpy as np; import scipy.stats as st
-from multiprocessing.dummy import Pool as ThreadPool
-from baselines import ALGS
+from baselines import *
+from safety_env import factory;
+
+# TODO: pass / load env spec
+def extract_model(exp, run, env_spec=0):
+  algorithm, seed= eval(exp['algorithm']), int(run.name)
+  envs = factory(seed, exp['env'], spec=env_spec, n_train=1, n_test=1)
+  model = algorithm.load(load=run.path, seed=seed, envs=envs, path=None, silent=True)
+  return model
 
 def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv=False):
   """Loads and structures all tb log files Given:
@@ -27,25 +34,37 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
   print(f"Scanning for hyperparameters in {base}")  # Third layer: Hyperparameters & number of runs
   hp = lambda name: dict(zip(['chi','omega','kappa'], parse('{:.1f}_{:.1f}_{:d}', name) or []))
   experiments = [{ **exp, 'path': e.path, **hp(e.name), 'runs': len(subdirs(e)) }
-    for exp in tqdm(experiments) if os.path.isdir(exp['path']) for e in subdirs(exp['path'])
-  ]
+    for exp in tqdm(experiments) if os.path.isdir(exp['path']) for e in subdirs(exp['path'])]
+  if alg=='DIRECT': experiments = sorted(experiments, key=lambda exp: (exp['kappa'],exp['omega']))
+  
+  print(f"Loading experiment logfiles from {metrics} [{sum([exp['runs'] for exp in experiments])* len(metrics)}]")  # Fourth layer: tb files   
+  progressbar = tqdm(total=sum([exp['runs'] for exp in experiments])* len(metrics))
+  data_buffer = {}
 
+  def extract_data(exp, run, name, key):
+    progressbar.update()
+    # Load model if needed
+    if name == 'Model': return extract_model(exp, run, key)
 
-  print(f"Loading experiment logfiles from {metrics}")  # Fourth layer: tb files   
-  csv = lambda run, name: path.isfile(f'{run.path}/{name}.csv')
-  extract_args = {'columns': ['Time', 'Step', 'Data'], 'index': 'Step', 'exclude': ['Time']}
-  extract_data = lambda run, key : pd.DataFrame.from_records(EA(run.path).Reload().Scalars(key), **extract_args)
-  extract_csvs = lambda run, name: pd.read_csv(f'{run.path}/{name}.csv').set_index('Step')
-  rm_dupl_idxs = lambda data: data.loc[~data.index.duplicated(keep='first')]
-  load_scalars = lambda run, name, key: extract_csvs(run, name) if csv(run, name) else extract_data(run, key)
-  process_data = lambda exp, name, key: [ rm_dupl_idxs(load_scalars(run, name, key)) for run in subdirs(exp['path']) ] 
-  # process_data = lambda exp, name, key: [ rm_dupl_idxs(load_scalars(run, name, key)) for run in tqdm(subdirs(exp['path'])) ] 
+    # Load data from csv if possible
+    if path.isfile(f'{run.path}/{name}.csv'): return pd.read_csv(f'{run.path}/{name}.csv').set_index('Step')
+
+    # Helper to filter double indexes & arguments for extraction
+    rm_dpl_idx = lambda data: data.loc[~data.index.duplicated(keep='first')]
+    extract_args = {'columns': ['Time', 'Step', 'Data'], 'index': 'Step', 'exclude': ['Time']}
+
+    log = data_buffer.get(run.path)
+    if log: return rm_dpl_idx(pd.DataFrame.from_records(log.Scalars(key), **extract_args))
+    else: data_buffer.update({run.path: EA(run.path).Reload()})
+    return extract_data(exp, run, name, key)
   
   # Process given experiments
-  experiments = [{**exp, 'data': { name: process_data(exp, *scalar) for name, scalar in metrics } } for exp in tqdm(experiments)]
-  
+  process_data = lambda exp, name, key: [ extract_data(exp, run, name, key) for run in subdirs(exp['path']) ] 
+  experiments = [{**exp, 'data': { name: process_data(exp, *scalar) for name, scalar in metrics } } for exp in experiments]
+  progressbar.close()
+
   names = list(zip(*list(zip(*metrics))[1]))[0] # Extract scalar names from metrics list 
-  dump_experiment = lambda data, runs: [ df.to_csv(f'{r.path}/{m}.csv') for m, d in data for r, df in zip(runs, d) ]
+  dump_experiment = lambda data, runs: [ df.to_csv(f'{r.path}/{m}.csv') for m, d in data for r, df in zip(runs, d) if m != 'Model' ]
   if dump_csv: [dump_experiment(zip(names,exp['data'].values()), subdirs(exp['path'])) for exp in experiments]
 
   return experiments
@@ -106,3 +125,11 @@ def process_ci(data):
 
 
 def process_steps(data): return [d.index[-1] for d in data]
+
+def process_heatmap(models):
+  heatmap_data = lambda model: { f'{key.capitalize()} {label.capitalize()}':(env.envs[0].iterate(f), args) 
+    for label, env in model.envs['test'].items()  for key, (f,args) in model.heatmap_iterations.items() }
+
+  # Calculate Heatmap data and flip Labels out, split data and args, add average=True arg
+  data = [heatmap_data(model) for model in models]
+  return  {label: {'data': [run[label][0] for run in data], 'args': (*data[0][label][1], True)} for label in data[0]}
