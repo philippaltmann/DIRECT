@@ -75,7 +75,7 @@ def group_experiments(experiments, groupby=['algorithm', 'env']):
   forms = {'algorithm':'{}', 'env':'{}', 'chi': 'Χ: {:.1f}', 'omega':  'ω: {:.2f}', 'kappa': 'κ: {:d}'}
   label = lambda exp, excl=[]: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key not in groupby + excl])
   title = lambda exp: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key in groupby])
-  def hue(index): index[0] += 1; return 360 / index[1] * index[0] - 32; 
+  def hue(index): index[0] += 1; return 360 / index[1] * index[0] - 180/index[1]; #32; 
   # [print(title(exp) + " | " + label(exp)) for exp in experiments]
 
   # Create product of all occuances of specified groups, zip with group titles & add size and a counter of visited group items
@@ -98,15 +98,13 @@ def calculate_metrics(plots, metrics):
   :param plots: list of dicts containing plot information and graphs with raw data
   :param metrics: Dicts of metric names and calculation processes 
   """
-  # process = lambda graph: { **graph, 'data': {name: metrics[name](data) for name, data in graph['data'].items()}}
-  # return [{ **plot, 'graphs': [process(graph) for graph in plot['graphs']] } for plot in plots]
-
-  process = lambda name, proc, graph: { **graph, 'data': proc(graph['data'][name]) }
-  # process = lambda name, proc, graph: { 'data': proc(graph['data'][name]) }
-  # process = lambda name, proc, graph: print(f"{name}: {proc}")#{ **graph, 'data': proc(graph['data'][name]) }
-  iterate = lambda metric, graphs: [ process(*metric, graph) for graph in graphs]
-  return [ { **plot, 'metric': metric[0], 'graphs': iterate(metric, plot['graphs']) }
-    for metric in metrics for plot in plots]
+  def process(metric, proc, plot):
+    graphs = [ { **graph, 'data': proc(graph['data'][metric]) } for graph in plot['graphs']]
+    if metric == 'Heatmap':
+      return [ { 'title': f"{key} ({plot['title']} | {graph['label']})", 'data': data, 'metric': metric} 
+        for graph in graphs for key, data in graph['data'].items() ]
+    return [{ **plot, 'graphs': graphs, 'metric': metric}]
+  return [ result for metric in metrics for plot in plots for result in process(*metric, plot)]
 
 
 def process_ci(data):
@@ -126,10 +124,14 @@ def process_ci(data):
 
 def process_steps(data): return [d.index[-1] for d in data]
 
-def process_heatmap(models):
-  heatmap_data = lambda model: { f'{key.capitalize()} {label.capitalize()}':(env.envs[0].iterate(f), args) 
-    for label, env in model.envs['test'].items()  for key, (f,args) in model.heatmap_iterations.items() }
 
-  # Calculate Heatmap data and flip Labels out, split data and args, add average=True arg
-  data = [heatmap_data(model) for model in models]
-  return  {label: {'data': [run[label][0] for run in data], 'args': (*data[0][label][1], True)} for label in data[0]}
+def process_heatmap(models):
+  envs = lambda model: model.envs['test'].items()
+  iters = lambda model: model.heatmap_iterations.items()
+  iterate = lambda n, env, k, iter: env.envs[0].iterate(iter[0]) #[1,2,3]#('data', iter[1])#
+  heatmap = lambda model: np.array([ iterate(*e, *i) for e in envs(model) for i in iters(model) ])
+  metadata = lambda n, env, k, iter: (f'{k.capitalize()} {n.capitalize()}', iter[1])#todo: append later - {graph["label"]} 
+  return { key: (data, args) for (key, args), data in zip( 
+    [ metadata(*e, *i) for e in envs(models[0]) for i in iters(models[0]) ], # Titles & Args [no. heatmaps]
+    np.moveaxis(np.array([heatmap(model) for model in models]), 0, -1) # Heatmap Data [models,heatmaps,...]->[heatmaps,...,models] 
+  )} 
