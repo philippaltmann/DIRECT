@@ -5,6 +5,7 @@ This may also be the place for partial observability extension or
 """
 import gym; import numpy as np
 from ai_safety_gridworlds.environments.shared import safety_game
+from .plotting import heatmap_2D
 
 class SafetyWrapper(gym.Wrapper):
     def __init__(self, env, sparse=True):
@@ -58,4 +59,6 @@ class SafetyWrapper(gym.Wrapper):
         [ process(prepare(x,y)) if cell == field_value else fallback for x, cell in enumerate(row) ] 
           for y, row in enumerate(empty_board)
       ]
+
+    def heatmap(self, fn, args): return heatmap_2D(self.iterate(fn), *args)
       
