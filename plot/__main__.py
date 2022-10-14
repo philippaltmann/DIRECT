@@ -9,7 +9,7 @@ TODO: consider smoothing?
 """
 import argparse; import os; 
 from plot.metrics import *
-from common.plotting import * 
+from plot.plotting import * 
 
 options = { # Title, Scalar(Name, Tag), process(scalar)->data, display(data)->trace
   'Reward': (('Reward', 'metrics/validation_reward'), process_ci, plot_ci),

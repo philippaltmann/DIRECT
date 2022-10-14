@@ -1,3 +1,4 @@
+from safety_env.plotting import heatmap_3D
 import plotly.graph_objects as go
 
 # Helper functions to create scatters/graphs from experiment & metric
@@ -13,6 +14,9 @@ def plot_ci(title, plot):
   getmean = lambda g: scatter(g['data'][0], name=g['label'], mode='lines', line={'color': color(g['hue']), 'smoothing': 1.0})
   getconf = lambda g: scatter(g['data'][1], fillcolor=color(g['hue'], True), fill='toself', line={'color': 'rgba(255,255,255,0)'}, showlegend=False)
   return { 'layout': layout(title), 'data': [getconf(g) for g in plot['graphs']] + [getmean(g) for g in plot['graphs']] }
+
+
+def plot_heatmap(title, plot): (data, (vmin,vmax)) = plot['data']; return heatmap_3D(data, vmin, vmax)
 
 
 #                      Red         Orange     Green          Blue        Purple 
