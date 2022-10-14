@@ -49,12 +49,54 @@ def plot_box(title, plot):
 # reward_threshold = {'type':'line', 'x0':0, 'y0':0.945, 'x1':1000000, 'y1':0.945, 'line':{'color':'#424242', 'width':2, 'dash':'dash'}}
 
 def plot_ci(title, plot):
+  # TODOs: smotthen, add reward threshold 
   scatter = lambda data, **kwargs: go.Scatter(x=data.index, y=data, **kwargs)
   getmean = lambda g: scatter(g['data'][0], name=g['label'], mode='lines', line={'color': color(g['hue']), 'smoothing': 1.0})
   getconf = lambda g: scatter(g['data'][1], fillcolor=color(g['hue'], True), fill='toself', line={'color': 'rgba(255,255,255,0)'}, showlegend=False)
-  #
-
   return { 'layout': layout(title), 'data': [getconf(g) for g in plot['graphs']] + [getmean(g) for g in plot['graphs']] }
+
+
+def plot_heatmap(title, plot):
+  (data, (vmin,vmax)) = plot['data']; rows,cols  = data.shape[0:2] # extract iteration data and arguments
+  
+  # Value range and coloration helpers
+  fltd = [np.mean(v) for row in data for col in row for v in col if v is not None and not None in v]
+  vmin = min(fltd) if vmin is None else vmin; vmax = max(fltd) if vmax is None else vmax
+  lookup = {'f':'hsl({:0.0f},{:0.0f}%,80%)', 'g':'hsl(140,100%,50%)', 'l': 'hsl(0,100%,50%)', 'w': 'rgba(192,192,192,0.5)'}
+  pct = lambda v: np.mean(v)/(vmax-vmin); opc = lambda v: 1-np.var(v)/(vmax-vmin)**2*2 # alt: 1-np.std(test)/(10-0)*2
+  color = lambda v: lookup[v] if type(v) == str and v in ['g','l','w'] else lookup['f'].format(pct(v)*140, opc(v)*100)
+  t = lambda c,r: 'w' if r in [0,rows-1] or c in [0,cols-1] else 'g' if r in [1,rows-2] and c in [1,cols-2] else 'l'
+  
+  # Reference Point constructors for triangulations
+  ct = lambda c,r,h=0: (c,r,h) # Helper points at c(ollumn), r(ow), h(ight) for w(idth)
+  ul = lambda c,r,h=0,w=0.5: (c-w, r-w, h); ur = lambda c,r,h=0,w=0.5: (c+w, r-w, h)
+  dr = lambda c,r,h=0,w=0.5: (c+w, r+w, h); dl = lambda c,r,h=0,w=0.5: (c-w, r+w, h)
+  points = lambda c,r,v: [ct(c,r,0),ul(c,r,0),ur(c,r,0),dr(c,r,0),dl(c,r,0),ul(c,r,1),ur(c,r,1),dr(c,r,1),dl(c,r,1)]
+
+  #  Reference Point constructors for positioning text
+  uc = lambda c,r,w=0.3: (c, r-w, 0.1); rc = lambda c,r,w=0.3: (c+w, r, 0.1)
+  dc = lambda c,r,w=0.3: (c, r+w, 0.1); lc = lambda c,r,w=0.3: (c-w, r, 0.1)
+  labels = lambda c,r: [uc(c,r),lc(c,r),dc(c,r),rc(c,r)]
+  txt = lambda c,r,val: [(*p, f'{np.mean(v):.2f}', 'black') for p,v in zip(labels(c,r), val)] if not None in val.flat else []
+
+  # Indices of points to build triangle (up, right, down, left)
+  _adapt = lambda c,r,t: tuple(map(lambda v: v+9*(r*cols+c),t))
+  triang = lambda c,r,i: _adapt(c,r, [(0,1,2), (0,4,1), (0,3,4), (0,2,3)][i]) #urdl(0,1,2), (0,2,3), (0,3,4), (0,4,1)
+  square = lambda c,r: [_adapt(c,r,v) for v in [(1,2,3), (1,3,4), (6,7,8), (5,6,8), (1,2,6), (2,5,6), (2,3,6), (3,6,7), (3,4,8), (3,7,8), (1,4,8), (1,5,8)]]
+  field = lambda c,r,val: [] if None in val.flat else [(*triang(c,r,i), color(v)) for i,v in enumerate(val)] 
+  cube = lambda c,r,val: [(*f, color(t(c,r))) for f in square(c,r)] if None in val.flat else []
+
+  process = lambda *f: np.array([result for fn in f for r, row in enumerate(data) for c,val in enumerate(reversed(row)) for result in fn(c,r,val)]).T.tolist()
+
+  p = dict(zip(['x','y','z'], process(points))); f = dict(zip(['i','j','k','facecolor'], process(field, cube)))
+  l = dict(zip(['x','y','z','text','textfont'], process(txt))); l['textfont'] = {'color': l['textfont'], 'size':8} 
+
+  mesh=go.Mesh3d(**p, **f) 
+  text=go.Scatter3d(**l, mode='text', textposition='middle center') 
+
+  axis = {'showbackground':False, 'tickmode': 'linear', 'range':[-0.5,max(data.shape)-0.5], 'visible': False} 
+  scene = {'xaxis':axis, 'yaxis':axis, 'zaxis':axis, 'camera': {'eye': {'x':0, 'y':0.125, 'z':0.6}}} 
+  return {'data': [mesh,text], 'layout': layout(None, False, False, scene=scene)}
 
 
 #                      Red         Orange     Green          Blue        Purple 
@@ -62,11 +104,11 @@ def plot_ci(title, plot):
 def color(hue, sec=False): return 'hsva({},{}%,{}%,{})'.format(hue, 90-sec*20, 80+sec*20, 1.0-sec*0.8)
 
 
-def layout(title=None, legend=True): 
+def layout(title=None, legend=True, wide=True, **kwargs): 
   return go.Layout( title=title, showlegend=legend, font=dict(size=24), 
-    margin=dict(l=8, r=8, t=8+(72 * (title is not None)), b=8), width=1200+300*legend, height=600)
+    margin=dict(l=8, r=8, t=8+(72 * (title is not None)), b=8), width=900+300*wide+300*legend, height=600, **kwargs)
 
 
 def generate_figures(plots, generator):
   title = lambda plot: f'{plot["metric"]} ({plot["title"]})'
-  return { title(plot): go.Figure(**generator[plot['metric']](title(plot), plot)) for plot in plots }
+  return { title(p): go.Figure(**generator[p['metric']](title(p), p)) for p in plots}
