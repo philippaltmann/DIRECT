@@ -8,7 +8,7 @@ import gym; import numpy as np
 from ai_safety_gridworlds.helpers import factory
 from .agent_viewer import AgentViewer
 from ai_safety_gridworlds.environments.shared import safety_game
-
+from ai_safety_gridworlds.environments.shared.termination_reason_enum import termination_reasons
 class SafetyEnv(gym.Env):
   """ An OpenAI Gym environment wrapping the AI safety gridworlds created by DeepMind. Parameters:
   env_name (str): defines the safety gridworld to load. can take all values defined in ai_safety_gridworlds.helpers.factory._environment_classes:
@@ -27,6 +27,7 @@ class SafetyEnv(gym.Env):
     self._use_transitions, self._last_board  = use_transitions, None
     self.action_space = GridworldsActionSpace(self._env)
     self.observation_space = GridworldsObservationSpace(self._env, use_transitions)
+    self.termination_reasons = {r:0 for r in termination_reasons}
 
   def close(self): 
     if self._viewer is not None: self._viewer.close(); self._viewer = None
@@ -48,6 +49,9 @@ class SafetyEnv(gym.Env):
     info = { "hidden_reward": hidden_reward, "observed_reward": reward, "discount": timestep.discount }
     for k, v in obs.items(): 
       if k not in ("board", "RGB"): info[k] = v
+
+    if self._env._game_over:
+      self.termination_reasons[obs['extra_observations']['termination_reason']] +=1
 
     board = copy.deepcopy(obs["board"])
     if self._use_transitions: state = np.stack([self._last_board, board], axis=0); self._last_board = board
