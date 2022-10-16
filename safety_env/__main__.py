@@ -10,10 +10,13 @@ parser.add_argument('--plot', help='Save heatmap vizualisation plots.', action='
 parser.add_argument('--seed', default=42, type=int, help='The random seed.')
 
 args = parser.parse_args()
-if args.play: assert False, 'Not implemented'
+if args.play: 
+  envs = factory(seed=args.seed, name=args.env_name)
+  env = envs['test']['validation'].unwrapped.get_attr('env')[0].env
+  env.play()
 
 if args.plot:
-  envs = factory(seed=42, name=args.env_name)
+  envs = factory(seed=args.seed, name=args.env_name)
   reward_data = { f"{args.env_name}_{tag}": np.expand_dims(np.array(env.envs[0].iterate()), axis=3) for tag, env in envs['test'].items() }
   [go.Figure(**heatmap_3D(data, -51,49)).write_image(f'results/plots/{key}-3D.pdf') for key, data in reward_data.items()]
 

@@ -95,6 +95,7 @@ class SafetyEnv(gym.Env):
         else: self._viewer.display(self._env)
       else: super(SafetyEnv, self).render(mode=mode)  # just raise an exception
 
+  def play(self): self._env.play()
 
 class GridworldsActionSpace(gym.spaces.Discrete):
   def __init__(self, env):
