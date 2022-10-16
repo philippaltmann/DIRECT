@@ -1,5 +1,4 @@
-import argparse
-from numpy import save; import setuptools; import os; import random
+import setuptools; import argparse; import os; import random
 from safety_env import factory; from common import TrainableAlgorithm
 from baselines import *
 parser = argparse.ArgumentParser()
@@ -41,7 +40,7 @@ seed = args.pop('seed', gen_seed()); path = base_path(seed); envs = factory(seed
 if args.pop('test'): path = None
 
 # Extract training parameters & merge model args
-reward_threshold = envs['train'].unwrapped.get_attr('spec')[0].reward_threshold
+reward_threshold = envs['train'].unwrapped.get_attr('reward_threshold')[0]
 stop_on_reward = args.pop('reward_threshold',reward_threshold) if any(arg in ['maxsteps', 'reward_threshold'] for arg in args) else None
 timesteps = args.pop('maxsteps', args.pop('timesteps'))
 print(f"Stopping training at threshold {stop_on_reward}") if stop_on_reward else print(f"Training for {timesteps} steps")

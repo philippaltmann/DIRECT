@@ -11,6 +11,7 @@ class SafetyWrapper(gym.Wrapper):
     def __init__(self, env, sparse=True):
       super(SafetyWrapper, self).__init__(env=env)
       self.states, self.actions, self.rewards, self.sparse = [], [], [], sparse
+      self.reward_threshold = round(env.spec.reward_threshold * 0.95) # Calculate Solved Threshold from optimal reward
       self._history = lambda: {
         'states': np.array(self.states.copy()), 
         'actions': np.array(self.actions.copy()), 
