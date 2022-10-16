@@ -1,18 +1,19 @@
-import argparse; import numpy as np; import plotly.graph_objects as go
-from safety_env import factory, SAFETY_ENVS, heatmap_2D, heatmap_3D
+import argparse; import numpy as np; import plotly.graph_objects as go; import gym
+from safety_env import factory, SAFETY_ENVS, heatmap_2D, heatmap_3D, env_id
 
 env_names = [''.join([env,mode]) for env in SAFETY_ENVS.keys() for mode in ['', '-Sparse']]
 
 parser = argparse.ArgumentParser()
 parser.add_argument('env_name', type=str, help='The env to use', choices=env_names)
-parser.add_argument('--play', help='Run environment in commandline.', action='store_true')
+parser.add_argument('--play', type=str, help='Run environment in commandline.') #, action='store_true'
 parser.add_argument('--plot', help='Save heatmap vizualisation plots.', action='store_true')
 parser.add_argument('--seed', default=42, type=int, help='The random seed.')
 
 args = parser.parse_args()
-if args.play: 
-  envs = factory(seed=args.seed, name=args.env_name)
-  env = envs['test']['validation'].unwrapped.get_attr('env')[0].env
+if args.play is not None: 
+  if args.env_name.endswith('-Sparse'): assert False, 'Playing sparse envs is not supported'
+  spec = int(args.play) if args.play.isdecimal() else args.play
+  env = gym.make(env_id(args.env_name, spec))
   env.play()
 
 if args.plot:
