@@ -76,6 +76,8 @@ class TrainableAlgorithm(BaseAlgorithm):
 
     # Get infos from episodes & record rewards confidence intervals to summary 
     epdata = {name: {ep['t']: ep[key] for ep in self.ep_info_buffer} for key,name in self._naming.items()}
+    termination_reasons = self.env.get_attr('termination_reasons')
+    [self.logger.record(str(r).replace('.','s/'), sum([env[r] for env in termination_reasons])) for r in termination_reasons[0]]
     summary.update(self.prepare_ci(epdata, category="rewards", write_raw=True))
 
     # Get Metrics from logger, record (float,int) as scalars, (ndarray) as confidence intervals
