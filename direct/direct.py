@@ -1,11 +1,10 @@
-from stable_baselines3.ppo import PPO
 from stable_baselines3.common.callbacks import CallbackList
 from typing import Any, Dict, List, Tuple
 
 from common import TrainableAlgorithm
 from . import DirectBuffer, Discriminator, DirectCallback
 
-class DIRECT(TrainableAlgorithm, PPO):
+class DIRECT(TrainableAlgorithm):
   """ Discriminative Reward Co-Training. Extending the PPO Implementation by stable baselines 3
   :param env: The environment to learn from (if registered in Gym, can be str)
   :param kappa: (int) k-Best Trajectories to be stored in the reward buffer
