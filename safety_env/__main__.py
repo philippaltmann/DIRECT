@@ -19,7 +19,7 @@ if args.play is not None:
 if args.plot:
   envs = factory(seed=args.seed, name=args.env_name)
   reward_data = { f"{args.env_name}_{tag}": np.expand_dims(np.array(env.envs[0].iterate()), axis=3) for tag, env in envs['test'].items() }
-  [go.Figure(**heatmap_3D(data, -51,49)).write_image(f'results/plots/{key}-3D.pdf') for key, data in reward_data.items()]
+  [heatmap_3D(data, -51,49).write_image(f'results/plots/{key}-3D.pdf') for key, data in reward_data.items()]
 
   # reward_data = { f"{args.env_name}_{tag}": env.envs[0].iterate() for tag, env in envs['test'].items() }
   # [heatmap_2D(data, -51,49).savefig(f'results/plots/{key}.png') for key, data in reward_data.items()]
