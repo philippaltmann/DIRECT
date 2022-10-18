@@ -3,8 +3,10 @@ import numpy as np; import plotly.graph_objects as go
 
 # Helper functions to create scatters/graphs from experiment & metric
 def plot_box(title, plot):
-  box = lambda g: go.Box(name=g['label'], y=g['data'], marker_color=color(g['hue']), boxmean=True)  #boxmean='sd'
-  return { 'layout': layout(title, False), 'data': [ box(g) for g in plot['graphs'] ] }
+  box = lambda g: go.Box(name=g['label'], y=g['data'][0], marker_color=color(g['hue']), boxmean=True)  #boxmean='sd'
+  figure = go.Figure(layout=layout(title, False), data=[box(g) for g in plot['graphs']])
+  figure.add_hline(y=plot['graphs'][0]['data'][1], line_dash = 'dash', line_color = 'rgb(64, 64, 64)')
+  return figure
 
 
 def smooth(data, degree=4):
@@ -17,7 +19,9 @@ def plot_ci(title, plot):
   scatter = lambda data, **kwargs: go.Scatter(x=data.index, y=smooth(data), **kwargs)
   getmean = lambda g: scatter(g['data'][0], name=g['label'], mode='lines', line={'color': color(g['hue'])})
   getconf = lambda g: scatter(g['data'][1], fillcolor=color(g['hue'], True), fill='toself', line={'color': 'rgba(255,255,255,0)'}, showlegend=False)
-  return { 'layout': layout(title), 'data': [getconf(g) for g in plot['graphs']] + [getmean(g) for g in plot['graphs']] }
+  figure = go.Figure(layout=layout(title), data=[getconf(g) for g in plot['graphs']] + [getmean(g) for g in plot['graphs']])
+  figure.add_hline(y=plot['graphs'][0]['data'][2], line_dash = 'dash', line_color = 'rgb(64, 64, 64)')
+  return figure
 
 
 def plot_heatmap(title, plot): (data, (vmin,vmax)) = plot['data']; return heatmap_3D(data, vmin, vmax)
@@ -37,5 +41,5 @@ def layout(title=None, legend=True, wide=True):
 
 
 def generate_figures(plots, generator):
-  title = lambda plot: f'{plot["metric"]} ({plot["title"]})'
-  return { title(p): go.Figure(**generator[p['metric']](title(p), p)) for p in plots}
+  title = lambda plot: f'Heatmaps/{plot["title"]}' if plot["metric"] == 'Heatmap' else f'{plot["metric"]} ({plot["title"]})'
+  return { title(p): generator[p['metric']](title(p), p) for p in plots}
