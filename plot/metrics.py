@@ -101,6 +101,8 @@ def calculate_metrics(plots, metrics):
 def process_ci(data, models):
   # Helper to claculate confidence interval
   ci = lambda d, confidence=0.95: st.t.ppf((1+confidence)/2, len(d)-1) * st.sem(d)
+  stop = models[0].envs['train'].get_attr('reward_threshold')[0]
+  upper = models[0].envs['train'].get_attr('env')[0].spec.reward_threshold
 
   # Prepare Data (fill until highest index)
   steps = [d.index[-1] for d in data]; maxsteps = np.max(steps)
@@ -109,11 +111,11 @@ def process_ci(data, models):
   
   # Mean 1..n | CI 1..n..1
   mean, h = data.mean(axis=1), data.apply(ci, axis=1)
-  ci = pd.concat([mean+h, (mean-h).iloc[::-1]])
-  return (mean, ci)
+  ci = pd.concat([mean+h, (mean-h).iloc[::-1]]).clip(upper=upper)
+  return (mean, ci, stop)
 
 
-def process_steps(data, models): return ([model.num_timesteps for model in models])
+def process_steps(data, models): return ([model.num_timesteps for model in models], 10e5)
 
 
 def process_heatmap(models):
