@@ -118,13 +118,14 @@ def process_ci(data, models):
 def process_steps(data, models): return ([model.num_timesteps for model in models], 10e5)
 
 
-def process_heatmap(models):
-  envs = lambda model: model.envs['test'].items()
-  iters = lambda model: model.heatmap_iterations.items()
-  iterate = lambda n, env, k, iter: env.envs[0].iterate(iter[0]) #[1,2,3]#('data', iter[1])#
-  heatmap = lambda model: np.array([ iterate(*e, *i) for e in envs(model) for i in iters(model) ])
-  metadata = lambda n, env, k, iter: (f'{k.capitalize()} {n.capitalize()}', iter[1])#todo: append later - {graph["label"]} 
-  return { key: (data, args) for (key, args), data in zip( 
-    [ metadata(*e, *i) for e in envs(models[0]) for i in iters(models[0]) ], # Titles & Args [no. heatmaps]
-    np.moveaxis(np.array([heatmap(model) for model in models]), 0, -1) # Heatmap Data [models,heatmaps,...]->[heatmaps,...,models] 
-  )} 
+def process_heatmap(specs, models):
+  env_name = lambda env: env_spec(env)._env_name
+  env_spec = lambda env: env.get_attr('env')[0].spec
+  
+  iterate = lambda model, envs, func: [ func(env, k,i) for env in envs for k,i in model.heatmap_iterations.items() ]
+  heatmap = lambda model, envs: iterate(model, envs, lambda env, k,i: env.envs[0].iterate(i[0]))
+  metadata = lambda model, envs: iterate(model, envs, lambda env, k,i: (f'{k.capitalize()} Env-{env_spec(env).id[-1]}', i[1]))
+  make_env = lambda model, spec: make(env_name(model.envs['train']), spec, seed=model.seed)
+
+  setting = list(zip(models, [[make_env(model, s) for s in spec] for model,spec in zip(models,specs)]))
+  return { k:(d,a) for (k,a),d in zip([m for m in metadata(*setting[0])], np.moveaxis(np.array([heatmap(*s) for s in setting]), 0, -1))} 
