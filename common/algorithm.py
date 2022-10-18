@@ -87,7 +87,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     
     #Write metrcis summary to tensorboard 
     [self.writer.add_scalar(tag, value, step) for tag,item in summary.items() for step,value in item.items()]
-    [self.writer.add_histogram(key, values, step) for key, values in metrics.items() if isinstance(values, th.Tensor)]
+    # [self.writer.add_histogram(key, values, step) for key, values in metrics.items() if isinstance(values, th.Tensor)]
   
   def prepare_ci(self, infos: dict, category=None, confidence:float=.95, write_raw=False) -> Dict: 
     """ Computes the confidence interval := x(+/-)t*(s/√n) for a given survey of a data set. ref:
