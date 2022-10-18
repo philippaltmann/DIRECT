@@ -1,17 +1,15 @@
 import os; from os import path; import itertools; from parse import parse; from tqdm import tqdm
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator as EA
 import pandas as pd; import numpy as np; import scipy.stats as st
-from baselines import *
-from safety_env import factory;
+from safety_env import factory, make; from algorithm import *
 
-# TODO: pass / load env spec
 def extract_model(exp, run, env_spec=0):
   algorithm, seed= eval(exp['algorithm']), int(run.name)
   envs = factory(seed, exp['env'], spec=env_spec, n_train=1, n_test=1)
   model = algorithm.load(load=run.path, seed=seed, envs=envs, path=None, silent=True)
   return model
 
-def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv=False):
+def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv=False, baseline=None):
   """Loads and structures all tb log files Given:
   :param base_path (str):
   :param env (optional): the environment to load 
@@ -25,7 +23,7 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
 
   print(f"Scanning for {alg if alg else 'algorithms'} in {base}")  # First layer: Algorithms
   if alg: experiments = [{'algorithm': alg, 'path':f'{base}/{alg}'}]
-  else: experiments = [{'algorithm': a.name, 'path': a} for a in subdirs(base) if a.name in ALGS]
+  else: experiments = [{'algorithm': a.name, 'path': a.path} for a in subdirs(base) if a.name in ALGS]
 
   print(f"Scanning for {env if env else 'environments'} in {base}")  # Second layer: Environments
   if env: experiments = [{**exp, 'env': env, 'path': f'{exp["path"]}/{env}'} for exp in experiments]
@@ -36,15 +34,14 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
   experiments = [{ **exp, 'path': e.path, **hp(e.name), 'runs': len(subdirs(e)) }
     for exp in tqdm(experiments) if os.path.isdir(exp['path']) for e in subdirs(exp['path'])]
   if alg=='DIRECT': experiments = sorted(experiments, key=lambda exp: (exp['kappa'],exp['omega']))
-  
+
   print(f"Loading experiment logfiles from {metrics} [{sum([exp['runs'] for exp in experiments])* len(metrics)}]")  # Fourth layer: tb files   
   progressbar = tqdm(total=sum([exp['runs'] for exp in experiments])* len(metrics))
   data_buffer = {}
 
   def extract_data(exp, run, name, key):
     progressbar.update()
-    # Load model if needed
-    if name == 'Model': return extract_model(exp, run, key)
+    if name == 'Model': return key
 
     # Load data from csv if possible
     if path.isfile(f'{run.path}/{name}.csv'): return pd.read_csv(f'{run.path}/{name}.csv').set_index('Step')
@@ -60,7 +57,8 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
   
   # Process given experiments
   process_data = lambda exp, name, key: [ extract_data(exp, run, name, key) for run in subdirs(exp['path']) ] 
-  experiments = [{**exp, 'data': { name: process_data(exp, *scalar) for name, scalar in metrics } } for exp in experiments]
+  fetch_models = lambda exp, spec = 0: [ extract_model(exp, run, spec) for run in subdirs(exp['path']) ] 
+  experiments = [{**exp, 'data': { name: process_data(exp, *scalar) for name, scalar in metrics }, 'models': fetch_models(exp)} for exp in experiments]
   progressbar.close()
 
   names = list(zip(*list(zip(*metrics))[1]))[0] # Extract scalar names from metrics list 
@@ -76,21 +74,14 @@ def group_experiments(experiments, groupby=['algorithm', 'env']):
   label = lambda exp, excl=[]: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key not in groupby + excl])
   title = lambda exp: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key in groupby])
   def hue(index): index[0] += 1; return 360 / index[1] * index[0] - 180/index[1]; #32; 
-  # [print(title(exp) + " | " + label(exp)) for exp in experiments]
 
   # Create product of all occuances of specified groups, zip with group titles & add size and a counter of visited group items
   options = list(itertools.product(*[ list(dict.fromkeys([exp[group] for exp in experiments])) for group in groupby ]))
   ingroup = lambda experiment, group: all([experiment[k] == v for k,v in zip(groupby, group)])
   options = list(zip(options, [[ title(exp) for exp in experiments if ingroup(exp,group)] for group in options ]))
   options = [(group, [0, len(titles)], titles[0]) for group, titles in options]
-  # options = list(zip(options, [ (0, len([ 1 for exp in experiments if ingroup(exp,group)])) for group in options ]))
-  # print(f"{args.groupby} ∈ {options}"); [print(group) for group in options]
-
-  # getdata = lambda exp, index: { 'label': label(exp), 'exp': exp, 'hue': hue(index) }
-  getgraph = lambda exp, index: { 'label': label(exp), 'data': exp['data'], 'hue': hue(index) }
-  return [{'title': title, 'graphs': 
-      [ getgraph(exp, index) for exp in experiments if ingroup(exp, group) ]
-    } for group, index, title in options ]
+  getgraph = lambda exp, index: { 'label': label(exp), 'data': exp['data'], 'models': exp['models'], 'hue': hue(index)} 
+  return [{'title': title, 'graphs': [ getgraph(exp, index) for exp in experiments if ingroup(exp, group) ] } for group, index, title in options ]
 
 
 def calculate_metrics(plots, metrics):
@@ -99,15 +90,15 @@ def calculate_metrics(plots, metrics):
   :param metrics: Dicts of metric names and calculation processes 
   """
   def process(metric, proc, plot):
-    graphs = [ { **graph, 'data': proc(graph['data'][metric]) } for graph in plot['graphs']]
+    graphs = [ { **graph, 'data': proc(graph['data'][metric], graph['models']) } for graph in plot['graphs']]
     if metric == 'Heatmap':
-      return [ { 'title': f"{key} ({plot['title']} | {graph['label']})", 'data': data, 'metric': metric} 
+      return [ { 'title': f"{plot['title']} | {graph['label']} | {key} ", 'data': data, 'metric': metric} 
         for graph in graphs for key, data in graph['data'].items() ]
     return [{ **plot, 'graphs': graphs, 'metric': metric}]
   return [ result for metric in metrics for plot in plots for result in process(*metric, plot)]
 
 
-def process_ci(data):
+def process_ci(data, models):
   # Helper to claculate confidence interval
   ci = lambda d, confidence=0.95: st.t.ppf((1+confidence)/2, len(d)-1) * st.sem(d)
 
@@ -122,7 +113,7 @@ def process_ci(data):
   return (mean, ci)
 
 
-def process_steps(data): return [d.index[-1] for d in data]
+def process_steps(data, models): return ([model.num_timesteps for model in models])
 
 
 def process_heatmap(models):
