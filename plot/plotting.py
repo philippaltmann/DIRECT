@@ -1,17 +1,21 @@
 from safety_env.plotting import heatmap_3D
-import plotly.graph_objects as go
+import numpy as np; import plotly.graph_objects as go
 
 # Helper functions to create scatters/graphs from experiment & metric
 def plot_box(title, plot):
   box = lambda g: go.Box(name=g['label'], y=g['data'], marker_color=color(g['hue']), boxmean=True)  #boxmean='sd'
   return { 'layout': layout(title, False), 'data': [ box(g) for g in plot['graphs'] ] }
 
-# reward_threshold = {'type':'line', 'x0':0, 'y0':0.945, 'x1':1000000, 'y1':0.945, 'line':{'color':'#424242', 'width':2, 'dash':'dash'}}
+
+def smooth(data, degree=4):
+  triangle = np.concatenate((np.arange(degree + 1), np.arange(degree)[::-1]))
+  smoothed = [np.sum(data[i:i + len(triangle)] * triangle)/np.sum(triangle) for i in range(degree, len(data) - degree * 2)]
+  return [smoothed[0]] * int(degree + degree/2) + smoothed + [smoothed[-1] for _ in range(len(data)-len(smoothed) - int(degree + degree/2))]
+
 
 def plot_ci(title, plot):
-  # TODOs: smotthen, add reward threshold 
-  scatter = lambda data, **kwargs: go.Scatter(x=data.index, y=data, **kwargs)
-  getmean = lambda g: scatter(g['data'][0], name=g['label'], mode='lines', line={'color': color(g['hue']), 'smoothing': 1.0})
+  scatter = lambda data, **kwargs: go.Scatter(x=data.index, y=smooth(data), **kwargs)
+  getmean = lambda g: scatter(g['data'][0], name=g['label'], mode='lines', line={'color': color(g['hue'])})
   getconf = lambda g: scatter(g['data'][1], fillcolor=color(g['hue'], True), fill='toself', line={'color': 'rgba(255,255,255,0)'}, showlegend=False)
   return { 'layout': layout(title), 'data': [getconf(g) for g in plot['graphs']] + [getmean(g) for g in plot['graphs']] }
 
