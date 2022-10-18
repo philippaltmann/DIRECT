@@ -83,4 +83,4 @@ def heatmap_3D(data, vmin=0, vmax=1):
   axis = {'showbackground':False, 'tickmode': 'linear', 'range':[-0.5,max(data.shape)-0.5], 'visible': False} 
   scene = {'xaxis':axis, 'yaxis':axis, 'zaxis':axis, 'camera': {'eye': {'x':0, 'y':0.125, 'z':0.6}}} 
   layout = go.Layout(margin=dict(l=8,r=8,t=8,b=8), width=900, height=600, scene=scene) #title=title
-  return {'data': [mesh,text], 'layout': layout}
+  return go.Figure(data=[mesh,text], layout=layout)
