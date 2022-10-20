@@ -46,8 +46,8 @@ class TrainableAlgorithm(BaseAlgorithm):
 
   def should_eval(self) -> bool: return self.eval_frequency is not None and self.num_timesteps % self.eval_frequency == 0  
   def should_log(self) -> bool: return self.log_frequency is not None and self.num_timesteps % self.log_frequency == 0 
-  
-  def learn(self, total_timesteps: int, stop_on_reward:float=None, eval_frequency=2048, log_frequency=128, **kwargs) -> "TrainableAlgorithm":
+
+  def learn(self, total_timesteps: int, stop_on_reward:float=None, eval_frequency=2048, log_frequency=256, **kwargs) -> "TrainableAlgorithm":
     """ Learn a policy
     :param total_timesteps: The total number of samples (env steps) to train on
     :param stop_on_reward: Threshold of the mean 100 episode return to terminate training.
@@ -71,7 +71,7 @@ class TrainableAlgorithm(BaseAlgorithm):
   def train(self, **kwargs) -> None:
     # Update Progressbar 
     self.progress_bar.postfix[0] = np.mean([ep_info["r"] for ep_info in self.ep_info_buffer])
-    if self.should_log(): self.progress_bar.update(self.log_frequency * self.env.num_envs); #n_steps
+    if self.should_log(): self.progress_bar.update(self.log_frequency); #n_steps
     summary, step = {}, self.num_timesteps 
 
     super(TrainableAlgorithm, self).train(**kwargs) # Train PPO & Write Training Stats 
