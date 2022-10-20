@@ -20,7 +20,7 @@ class EvaluationCallback(BaseCallback):
     if self.writer == None: return 
     mean_return = np.mean([ep_info["r"] for ep_info in self.model.ep_info_buffer])
     if (self.stop_on_reward and mean_return >= self.stop_on_reward) or not self.continue_training: self.continue_training = False
-    if self.model.should_log(): self.evaluate()
+    if self.model.should_eval(): self.evaluate()
 
   def _on_step(self) -> bool: 
     """ Write timesteps to info & stop on reward threshold"""

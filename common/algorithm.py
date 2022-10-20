@@ -44,18 +44,20 @@ class TrainableAlgorithm(BaseAlgorithm):
     :return: List of parameters that should be excluded from being saved with pickle. """
     return super(TrainableAlgorithm, self)._excluded_save_params() + ['get_actions', 'heatmap_iterations', '_naming', '_custom_scalars', '_registered_ci', 'envs', 'writer', 'progress_bar', 'silent']
 
-  def should_log(self) -> bool: return self.eval_frequency is not None and self.num_timesteps % self.eval_frequency == 0  # Returns if evaluation should be logged
-
-  def learn(self, total_timesteps: int, stop_on_reward:float=None, eval_frequency=2048, **kwargs) -> "TrainableAlgorithm":
+  def should_eval(self) -> bool: return self.eval_frequency is not None and self.num_timesteps % self.eval_frequency == 0  
+  def should_log(self) -> bool: return self.log_frequency is not None and self.num_timesteps % self.log_frequency == 0 
+  
+  def learn(self, total_timesteps: int, stop_on_reward:float=None, eval_frequency=2048, log_frequency=128, **kwargs) -> "TrainableAlgorithm":
     """ Learn a policy
     :param total_timesteps: The total number of samples (env steps) to train on
     :param stop_on_reward: Threshold of the mean 100 episode return to terminate training.
     :param **kwargs: further aguments are passed to the parent classes 
     :return: the trained model """
-    callback = EvaluationCallback(self, self.envs['test'], stop_on_reward=stop_on_reward)
+    callback = EvaluationCallback(self, self.envs['test'], stop_on_reward=stop_on_reward); callback.evaluate() # Force Pre-training eval
     if 'callback' in kwargs: callback = CallbackList([kwargs.pop('callback'), callback])    
     alg = self.__class__.__name__; total = self.num_timesteps+total_timesteps; stepsize = self.n_steps * self.n_envs;
     if eval_frequency is not None: self.eval_frequency = eval_frequency * self.n_envs // stepsize * stepsize or eval_frequency * self.n_envs
+    if log_frequency is not None: self.log_frequency = log_frequency * self.n_envs // stepsize * stepsize or log_frequency * self.n_envs
     hps = self.get_hparams(); hps.pop('seed'); hps.pop('num_timesteps');  # hp = f"(χ={self.chi}, κ={self.kappa}, ω={self.omega})" if alg=="DIRECT" else ""
     hyper = f"with: χ={hps.pop('chi')}, κ={hps.pop('kappa')}, ω={hps.pop('omega')}" if alg == "DIRECT" else ""
     disc = f"with {hps.pop('n_epochs')} / {hps.pop('discriminator_n_updates')} updates in {hps.pop('batch_size')} / {hps.pop('discriminator_batch_size')} batches [Policy/Discriminator] on {hps.pop('n_steps')} step rollouts" if alg == "DIRECT" else ""
@@ -69,7 +71,8 @@ class TrainableAlgorithm(BaseAlgorithm):
   def train(self, **kwargs) -> None:
     # Update Progressbar 
     self.progress_bar.postfix[0] = np.mean([ep_info["r"] for ep_info in self.ep_info_buffer])
-    self.progress_bar.update(self.n_steps * self.env.num_envs); summary, step = {}, self.num_timesteps 
+    if self.should_log(): self.progress_bar.update(self.log_frequency * self.env.num_envs); #n_steps
+    summary, step = {}, self.num_timesteps 
 
     super(TrainableAlgorithm, self).train(**kwargs) # Train PPO & Write Training Stats 
     if self.writer == None or not self.should_log(): return 
