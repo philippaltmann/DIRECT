@@ -21,6 +21,7 @@ options = { # Title, Scalar(Name, Tag), process(scalar)->data, display(data)->tr
 parser = argparse.ArgumentParser()
 parser.add_argument('base', default='./results', help='The results root')
 parser.add_argument('-a', dest='alg', help='Algorithm to vizualise.')
+parser.add_argument('-b', dest='baseline', help='Base path of reloaded model.')
 parser.add_argument('-e', dest='env', help='Environment to vizualise.')
 parser.add_argument('-g', dest='groupby', nargs='+', default=['algorithm', 'env'], metavar="groupby", help='Experiment keys to group plotted data by.')
 parser.add_argument('-m', dest='metrics', nargs='+', default=['Return', 'Steps'], choices=options.keys(), help='Experiment keys to group plotted data by.')
