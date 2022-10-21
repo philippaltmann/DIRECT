@@ -69,10 +69,6 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
   experiments = [{**exp, 'data': { name: process_data(exp, *scalar) for name, scalar in metrics }, 'models': fetch_models(exp)} for exp in experiments]
   progressbar.close()
 
-  names = list(zip(*list(zip(*metrics))[1]))[0] # Extract scalar names from metrics list 
-  dump_experiment = lambda data, runs: [ df.to_csv(f'{r.path}/{m}.csv') for m, d in data for r, df in zip(runs, d) if m != 'Model' ]
-  if dump_csv: [dump_experiment(zip(names,exp['data'].values()), subdirs(exp['path'])) for exp in experiments]
-
   return experiments
 
 
