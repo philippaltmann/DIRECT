@@ -28,7 +28,7 @@ class TrainableAlgorithm(BaseAlgorithm):
     self.get_actions = lambda s: self.policy.get_distribution(s).distribution.probs.cpu().detach().numpy()
     self.heatmap_iterations = { 'policy': (lambda _, s, a, r: self.get_actions(obs(s, self.device))[0][a], (0,1)) }
     super(TrainableAlgorithm, self)._setup_model()
-    self.writer, self._registered_ci = SummaryWriter(log_dir=self.path) if self.path else None, []
+    self.writer, self._registered_ci = SummaryWriter(log_dir=self.path) if self.path and not self.silent else None, []
     if not self.silent: print("+-------------------------------------------------------+\n"\
       f"| System: {platform.platform()} |\n| Version: {platform.version()} |\n" \
       f"| GPU: {f'Enabled, version {th.version.cuda} on {th.cuda.get_device_name(0)}' if th.cuda.is_available() else'Disabled'} |\n"\
@@ -45,9 +45,8 @@ class TrainableAlgorithm(BaseAlgorithm):
     return super(TrainableAlgorithm, self)._excluded_save_params() + ['get_actions', 'heatmap_iterations', '_naming', '_custom_scalars', '_registered_ci', 'envs', 'writer', 'progress_bar', 'silent']
 
   def should_eval(self) -> bool: return self.eval_frequency is not None and self.num_timesteps % self.eval_frequency == 0  
-  def should_log(self) -> bool: return self.log_frequency is not None and self.num_timesteps % self.log_frequency == 0 
 
-  def learn(self, total_timesteps: int, stop_on_reward:float=None, eval_frequency=2048, log_frequency=256, **kwargs) -> "TrainableAlgorithm":
+  def learn(self, total_timesteps: int, stop_on_reward:float=None, eval_frequency=2048, **kwargs) -> "TrainableAlgorithm":
     """ Learn a policy
     :param total_timesteps: The total number of samples (env steps) to train on
     :param stop_on_reward: Threshold of the mean 100 episode return to terminate training.
@@ -57,7 +56,6 @@ class TrainableAlgorithm(BaseAlgorithm):
     if 'callback' in kwargs: callback = CallbackList([kwargs.pop('callback'), callback])    
     alg = self.__class__.__name__; total = self.num_timesteps+total_timesteps; stepsize = self.n_steps * self.n_envs;
     if eval_frequency is not None: self.eval_frequency = eval_frequency * self.n_envs // stepsize * stepsize or eval_frequency * self.n_envs
-    if log_frequency is not None: self.log_frequency = log_frequency * self.n_envs // stepsize * stepsize or log_frequency * self.n_envs
     hps = self.get_hparams(); hps.pop('seed'); hps.pop('num_timesteps');  # hp = f"(χ={self.chi}, κ={self.kappa}, ω={self.omega})" if alg=="DIRECT" else ""
     hyper = f"with: χ={hps.pop('chi')}, κ={hps.pop('kappa')}, ω={hps.pop('omega')}" if alg == "DIRECT" else ""
     disc = f"with {hps.pop('n_epochs')} / {hps.pop('discriminator_n_updates')} updates in {hps.pop('batch_size')} / {hps.pop('discriminator_batch_size')} batches [Policy/Discriminator] on {hps.pop('n_steps')} step rollouts" if alg == "DIRECT" else ""
@@ -71,11 +69,11 @@ class TrainableAlgorithm(BaseAlgorithm):
   def train(self, **kwargs) -> None:
     # Update Progressbar 
     self.progress_bar.postfix[0] = np.mean([ep_info["r"] for ep_info in self.ep_info_buffer])
-    if self.should_log(): self.progress_bar.update(self.log_frequency); #n_steps
+    if self.should_eval(): self.progress_bar.update(self.eval_frequency); #n_steps
     summary, step = {}, self.num_timesteps 
 
     super(TrainableAlgorithm, self).train(**kwargs) # Train PPO & Write Training Stats 
-    if self.writer == None or not self.should_log(): return 
+    if self.writer == None or not self.should_eval(): return 
 
     # Get infos from episodes & record rewards confidence intervals to summary 
     epdata = {name: {ep['t']: ep[key] for ep in self.ep_info_buffer} for key,name in self._naming.items()}
