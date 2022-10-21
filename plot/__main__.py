@@ -37,6 +37,7 @@ def add_eval(e): options[enames[e]] = (('Model', e), process_eval, plot_eval); a
 
 metrics = [(metric, *options[metric]) for metric in args.pop('metrics')]
 titles, scalars, procs, plotters = zip(*metrics)
+label_exclude =  [] if args['alg'] and args['alg'] == 'DIRECT' else ['chi', 'omega', 'kappa']
 
 # Load, sort and group experiments, calculate metrics and generate figures
 experiments = fetch_experiments(**args, metrics=list(zip(titles, scalars)))
