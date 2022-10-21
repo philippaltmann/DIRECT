@@ -12,7 +12,7 @@ options = { # Title, Scalar(Name, Tag), process(scalar)->data, display(data)->tr
   'Return': (('Return', 'rewards/return-100-mean'), process_ci, plot_ci),
   'Buffer': (('Buffer', 'rewards/return-100-mean'), process_ci, plot_ci),
   'Length':  (('Length', 'rewards/length-100-mean'), process_ci, plot_ci),
-  'Steps': (('Model', 'rewards/return-100-mean'),  process_steps, plot_box), # ('Reward', 'metrics/validation_reward')
+  'Steps': (('Return', 'rewards/return-100-mean'),  process_steps, plot_box), # ('Model', 'metrics/validation_reward')
 }
 
 # Process commandline arguments 
@@ -28,7 +28,7 @@ parser.add_argument('-nd', dest='dump_csv', action='store_false', help='Skip csv
 parser.add_argument('--eval', nargs='+', default=[], help='Run Evaluations')
 
 tryint = lambda s: int(s) if s.isdigit() else s
-args = vars(parser.parse_args()); groupby = args.pop('groupby'); hm = [int(s) if s.isdigit() else s for s in args.pop('heatmap')]
+args = vars(parser.parse_args()); groupby = args.pop('groupby'); hm = [tryint(s) for s in args.pop('heatmap')]
 if len(hm): options['Heatmap'] = (('Model', hm), process_heatmap, plot_heatmap); args['metrics'].append('Heatmap') 
 
 enames = ['Evaluation Training', 'Evaluation Shifted Obs', 'Evaluation Shifted Obs 2', 'Evaluation Shifted Goal']
@@ -41,7 +41,7 @@ label_exclude =  [] if args['alg'] and args['alg'] == 'DIRECT' else ['chi', 'ome
 
 # Load, sort and group experiments, calculate metrics and generate figures
 experiments = fetch_experiments(**args, metrics=list(zip(titles, scalars)))
-experiments = group_experiments(experiments, groupby)
+experiments = group_experiments(experiments, groupby, label_exclude)
 metrics = calculate_metrics(experiments, list(zip(titles, procs)))
 figures = generate_figures(metrics, dict(zip(titles, plotters)))
 
