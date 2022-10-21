@@ -1,7 +1,7 @@
 import numpy as np; import torch as th
 from stable_baselines3.a2c import A2C as StableA2C
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
-from .buffer import PrioritizedReplayBuffer
+from .sil_buffer import PrioritizedReplayBuffer
 from common import TrainableAlgorithm
 
 class SIL(TrainableAlgorithm, StableA2C):
