@@ -6,7 +6,7 @@ from safety_env import factory, make, env_name, env_spec; from algorithm import 
 def extract_model(exp, run, env_spec=0):
   algorithm, seed= eval(exp['algorithm']), int(run.name)
   envs = factory(seed, exp['env'], spec=env_spec, n_train=1, n_test=1)
-  model = algorithm.load(load=run.path, seed=seed, envs=envs, path=None, silent=True)
+  model = algorithm.load(load=run.path, seed=seed, envs=envs, path=None, silent=True, device='cpu')
   return model
 
 def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv=False, baseline=None):
