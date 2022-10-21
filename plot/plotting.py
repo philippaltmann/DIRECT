@@ -1,12 +1,14 @@
 from safety_env.plotting import heatmap_3D
 import numpy as np; import plotly.graph_objects as go
 
+title = lambda plot: [plot["metric"], plot["title"]]
+
 # Helper functions to create scatters/graphs from experiment & metric
-def plot_box(title, plot):
-  box = lambda g: go.Box(name=g['label'], y=g['data'][0], marker_color=color(g['hue']), boxmean=True)  #boxmean='sd'
-  figure = go.Figure(layout=layout(title, False), data=[box(g) for g in plot['graphs']])
+def plot_box(plot):
+  box = lambda g: go.Box(name=g['label'], y=g['data'][0], marker_color=color(g['hue']), boxmean=True) 
+  figure = go.Figure(layout=layout(**dict(zip(['y','title'], title(plot)))), data=[box(g) for g in plot['graphs']])
   figure.add_hline(y=plot['graphs'][0]['data'][1], line_dash = 'dash', line_color = 'rgb(64, 64, 64)')
-  return figure
+  return {' '.join(title(plot)): figure}
 
 
 def smooth(data, degree=4):
