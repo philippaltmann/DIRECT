@@ -1,9 +1,7 @@
 """
 Example commands:
-python -m plot experiments/1-HP/sar -g algorithm env omega
-python -m plot experiments/2-benchmark -g env
-python -m plot experiments/2-benchmark -g env -a PPO -m Heatmap
-python -m plot experiments/1-HP/sar
+python -m plot plot/results/reload -b plot/results/train --eval
+python -m plot plot/results/train 
 """
 import argparse; import os; 
 from plot.metrics import *
