@@ -34,12 +34,14 @@ def plot_heatmap(title, plot): (data, (vmin,vmax)) = plot['data']; return heatma
 def color(hue, sec=False): return 'hsva({},{}%,{}%,{})'.format(hue, 90-sec*20, 80+sec*20, 1.0-sec*0.8)
 
 
-def layout(title=None, legend=True, wide=True): 
-  axis = {'gridcolor': 'rgba(64, 64, 64, 0.32)', 'linecolor': 'rgb(64, 64, 64)',
-    'mirror':True, 'ticks':'outside', 'showline':True, 'zeroline': True, 'zerolinecolor': 'rgba(64, 64, 64, 0.32)'} #'tickmode': 'linear', 'range':[-0.5,max(data.shape)-0.5], 
+def layout(title=None, legend=True, wide=True, x='', y=''): 
+  axis = lambda title: {'gridcolor': 'rgba(64, 64, 64, 0.32)', 'linecolor': 'rgb(64, 64, 64)', 'title': title,
+    'mirror':True, 'ticks':'outside', 'showline':True, 'zeroline': True, 'zerolinecolor': 'rgba(64, 64, 64, 0.32)'} 
+    #'tickmode': 'linear', 'range':[-0.5,max(data.shape)-0.5], 
    
   return go.Layout( title=title, showlegend=legend, font=dict(size=24), 
-    margin=dict(l=8, r=8, t=8+(72 * (title is not None)), b=8), width=900+300*wide+300*legend, height=600, xaxis=axis, yaxis=axis, plot_bgcolor='rgba(64,64,64,0.04)') #, paper_bgcolor='rgba(0,0,0,0)', 
+    margin=dict(l=8, r=8, t=8+(72 * (title is not None)), b=8), width=900+300*wide+300*legend, height=600, 
+    xaxis=axis(x), yaxis=axis(y), plot_bgcolor='rgba(64,64,64,0.04)') #, paper_bgcolor='rgba(0,0,0,0)', 
 
 
 def generate_figures(plots, generator): return { k:v for p in plots for k,v in generator[p['metric']](p).items()}
