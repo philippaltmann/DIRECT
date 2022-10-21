@@ -81,7 +81,7 @@ def group_experiments(experiments, groupby=['algorithm', 'env']):
   forms = {'algorithm':'{}', 'env':'{}', 'chi': 'Χ: {:.1f}', 'omega':  'ω: {:.2f}', 'kappa': 'κ: {:d}'}
   label = lambda exp, excl=[]: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key not in groupby + excl])
   title = lambda exp: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key in groupby])
-  def hue(index): index[0] += 1; return 360 / index[1] * index[0] - 180/index[1]; #32; 
+  def hue(index): index[0] += 1; return 360 / index[1] * index[0] - 180/(index[1] * index[0]); #32; 180
 
   # Create product of all occuances of specified groups, zip with group titles & add size and a counter of visited group items
   options = list(itertools.product(*[ list(dict.fromkeys([exp[group] for exp in experiments])) for group in groupby ]))
