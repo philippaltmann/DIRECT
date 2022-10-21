@@ -39,21 +39,29 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
   progressbar = tqdm(total=sum([exp['runs'] for exp in experiments])* len(metrics))
   data_buffer = {}
 
+  def fetch_data(exp, run_path, name, key):
+    # Load data from csv if possible
+    if path.isfile(f'{run_path}/{name}.csv'): return pd.read_csv(f'{run_path}/{name}.csv').set_index('Step')
+
+    # Use buffered Event Accumulator if already open
+    if log := data_buffer.get(run_path):
+      extract_args = {'columns': ['Time', 'Step', 'Data'], 'index': 'Step', 'exclude': ['Time']}
+      data = pd.DataFrame.from_records(log.Scalars(key), **extract_args)
+      data = data.loc[~data.index.duplicated(keep='first')] # Remove duplicate indexes
+      if dump_csv: data.to_csv(f'{run_path}/{name}.csv')
+      return data    
+
+    data_buffer.update({run_path: EA(run_path).Reload()})
+    return fetch_data(exp, run_path, name, key)
+  
   def extract_data(exp, run, name, key):
     progressbar.update()
     if name == 'Model': return key
-
-    # Load data from csv if possible
-    if path.isfile(f'{run.path}/{name}.csv'): return pd.read_csv(f'{run.path}/{name}.csv').set_index('Step')
-
-    # Helper to filter double indexes & arguments for extraction
-    rm_dpl_idx = lambda data: data.loc[~data.index.duplicated(keep='first')]
-    extract_args = {'columns': ['Time', 'Step', 'Data'], 'index': 'Step', 'exclude': ['Time']}
-
-    log = data_buffer.get(run.path)
-    if log: return rm_dpl_idx(pd.DataFrame.from_records(log.Scalars(key), **extract_args))
-    else: data_buffer.update({run.path: EA(run.path).Reload()})
-    return extract_data(exp, run, name, key)
+    data = fetch_data(exp, run.path, name, key)
+    if baseline is None: return data
+    prev = fetch_data(exp, run.path.replace(base, baseline), name, key)
+    data.index = data.index - prev.index[-1] # Norm by last baseline index
+    return data
   
   # Process given experiments
   process_data = lambda exp, name, key: [ extract_data(exp, run, name, key) for run in subdirs(exp['path']) ] 
