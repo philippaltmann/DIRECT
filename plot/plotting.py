@@ -26,6 +26,12 @@ def plot_ci(title, plot):
   return figure
 
 
+# Helper functions to create scatters/graphs from experiment & metric
+def plot_eval(plot):
+  plot['title'] = plot['title'] + plot['metric']; plot['metric'] = 'Reward'; 
+  return plot_box(plot)
+
+
 def plot_heatmap(plot): (data, (vmin,vmax)) = plot['data']; return {f'Heatmaps/{plot["title"]}': heatmap_3D(data, vmin, vmax)}
 
 
