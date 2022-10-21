@@ -130,3 +130,11 @@ make_env = lambda model, spec: make(env_name(model.envs['train']), spec, seed=mo
 def process_heatmap(specs, models):
   setting = list(zip(models, [[make_env(model, s) for s in spec] for model,spec in zip(models,specs)]))
   return { k:(d,a) for (k,a),d in zip([m for m in metadata(*setting[0])], np.moveaxis(np.array([heatmap(*s) for s in setting]), 0, -1))} 
+
+
+def process_eval(specs, models):
+  from stable_baselines3.common.evaluation import evaluate_policy
+  data = [(model, make_env(model, spec)) for model,spec in zip(models,specs)]
+  eval = [evaluate_policy(*args, n_eval_episodes=1)[0] for args in data ]
+  return (eval, data[0][1].get_attr('reward_threshold')[0])
+
