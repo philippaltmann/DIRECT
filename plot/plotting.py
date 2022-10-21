@@ -17,13 +17,15 @@ def smooth(data, degree=4):
   return [smoothed[0]] * int(degree + degree/2) + smoothed + [smoothed[-1] for _ in range(len(data)-len(smoothed) - int(degree + degree/2))]
 
 
-def plot_ci(title, plot):
+def plot_ci(plot):
   scatter = lambda data, **kwargs: go.Scatter(x=data.index, y=smooth(data), **kwargs)
   getmean = lambda g: scatter(g['data'][0], name=g['label'], mode='lines', line={'color': color(g['hue'])})
   getconf = lambda g: scatter(g['data'][1], fillcolor=color(g['hue'], True), fill='toself', line={'color': 'rgba(255,255,255,0)'}, showlegend=False)
-  figure = go.Figure(layout=layout(title), data=[getconf(g) for g in plot['graphs']] + [getmean(g) for g in plot['graphs']])
+  data = [getconf(g) for g in plot['graphs']] + [getmean(g) for g in plot['graphs']]
+  figure = go.Figure(layout=layout( y='Mean Return', x='Timesteps', legend=True), data=data)
+  # figure = go.Figure(layout=layout(**dict(zip(['y','title'], title(plot))), x='Timesteps', legend=False), data=data)
   figure.add_hline(y=plot['graphs'][0]['data'][2], line_dash = 'dash', line_color = 'rgb(64, 64, 64)')
-  return figure
+  return {' '.join(title(plot)): figure}
 
 
 # Helper functions to create scatters/graphs from experiment & metric
