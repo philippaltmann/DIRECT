@@ -25,10 +25,15 @@ parser.add_argument('-g', dest='groupby', nargs='+', default=['algorithm', 'env'
 parser.add_argument('-m', dest='metrics', nargs='+', default=['Return', 'Steps'], choices=options.keys(), help='Experiment keys to group plotted data by.')
 parser.add_argument('-hm', dest='heatmap', nargs='+', default=[], help='Environment to vizualise.')
 parser.add_argument('-nd', dest='dump_csv', action='store_false', help='Skip csv dump')
+parser.add_argument('--eval', nargs='+', default=[], help='Run Evaluations')
 
 tryint = lambda s: int(s) if s.isdigit() else s
 args = vars(parser.parse_args()); groupby = args.pop('groupby'); hm = [int(s) if s.isdigit() else s for s in args.pop('heatmap')]
 if len(hm): options['Heatmap'] = (('Model', hm), process_heatmap, plot_heatmap); args['metrics'].append('Heatmap') 
+
+enames = ['Evaluation Training', 'Evaluation Shifted Obs', 'Evaluation Shifted Obs 2', 'Evaluation Shifted Goal']
+def add_eval(e): options[enames[e]] = (('Model', e), process_eval, plot_eval); args['metrics'].append(enames[e])
+[add_eval(tryint(e)) for e in args.pop('eval')]
 
 metrics = [(metric, *options[metric]) for metric in args.pop('metrics')]
 titles, scalars, procs, plotters = zip(*metrics)
