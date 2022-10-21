@@ -42,6 +42,4 @@ def layout(title=None, legend=True, wide=True):
     margin=dict(l=8, r=8, t=8+(72 * (title is not None)), b=8), width=900+300*wide+300*legend, height=600, xaxis=axis, yaxis=axis, plot_bgcolor='rgba(64,64,64,0.04)') #, paper_bgcolor='rgba(0,0,0,0)', 
 
 
-def generate_figures(plots, generator):
-  title = lambda plot: f'Heatmaps/{plot["title"]}' if plot["metric"] == 'Heatmap' else f'{plot["metric"]} ({plot["title"]})'
-  return { title(p): generator[p['metric']](title(p), p) for p in plots}
+def generate_figures(plots, generator): return { k:v for p in plots for k,v in generator[p['metric']](p).items()}
