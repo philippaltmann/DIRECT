@@ -76,10 +76,10 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
   return experiments
 
 
-def group_experiments(experiments, groupby=['algorithm', 'env']):
+def group_experiments(experiments, groupby=['algorithm', 'env'], label_excl=[]):
   # Graphical helpers for titles, labels
   forms = {'algorithm':'{}', 'env':'{}', 'chi': 'Χ: {:.1f}', 'omega':  'ω: {:.2f}', 'kappa': 'κ: {:d}'}
-  label = lambda exp, excl=[]: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key not in groupby + excl])
+  label = lambda exp, excl=label_excl: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key not in groupby + excl])
   title = lambda exp: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key in groupby])
   def hue(index): index[0] += 1; return 360 / index[1] * index[0] - 180/(index[1] * index[0]); #32; 180
 
