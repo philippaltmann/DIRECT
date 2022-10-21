@@ -123,7 +123,7 @@ def process_ci(data, models):
   return (mean, ci, stop)
 
 
-def process_steps(data, models): return ([model.num_timesteps for model in models], 10e5)
+def process_steps(data, models): return ([d.index[-1] for d in data], 10e5)
 
 
 def process_heatmap(specs, models):
