@@ -25,6 +25,8 @@ parser.add_argument('-g', dest='groupby', nargs='+', default=['algorithm', 'env'
 parser.add_argument('-m', dest='metrics', nargs='+', default=['Return', 'Steps'], choices=options.keys(), help='Experiment keys to group plotted data by.')
 parser.add_argument('-hm', dest='heatmap', nargs='+', default=[], help='Environment to vizualise.')
 parser.add_argument('-nd', dest='dump_csv', action='store_false', help='Skip csv dump')
+
+tryint = lambda s: int(s) if s.isdigit() else s
 args = vars(parser.parse_args()); groupby = args.pop('groupby'); hm = [int(s) if s.isdigit() else s for s in args.pop('heatmap')]
 if len(hm): options['Heatmap'] = (('Model', hm), process_heatmap, plot_heatmap); args['metrics'].append('Heatmap') 
 
