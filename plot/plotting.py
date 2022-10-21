@@ -26,7 +26,7 @@ def plot_ci(title, plot):
   return figure
 
 
-def plot_heatmap(title, plot): (data, (vmin,vmax)) = plot['data']; return heatmap_3D(data, vmin, vmax)
+def plot_heatmap(plot): (data, (vmin,vmax)) = plot['data']; return {f'Heatmaps/{plot["title"]}': heatmap_3D(data, vmin, vmax)}
 
 
 #                      Red         Orange     Green          Blue        Purple 
