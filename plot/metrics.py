@@ -2,10 +2,12 @@ import os; from os import path; import itertools; from parse import parse; from 
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator as EA
 import pandas as pd; import numpy as np; import scipy.stats as st
 from safety_env import factory, make, env_name, env_spec; from algorithm import *
+from run import env_conf
 
-def extract_model(exp, run, env_spec=0):
-  algorithm, seed= eval(exp['algorithm']), int(run.name)
-  envs = factory(seed, exp['env'], spec=env_spec, n_train=1, n_test=1)
+def extract_model(exp, run):
+  algorithm, seed = eval(exp['algorithm']), int(run.name)
+  envs = factory(*env_conf(exp['env']), n_train=1, n_test=1)[0]
+  envs['train'].seed(seed); [env.seed(seed) for _,env in envs['test'].items()]
   model = algorithm.load(load=run.path, seed=seed, envs=envs, path=None, silent=True, device='cpu')
   return model
 
@@ -65,7 +67,7 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
   
   # Process given experiments
   process_data = lambda exp, name, key: [ extract_data(exp, run, name, key) for run in subdirs(exp['path']) ] 
-  fetch_models = lambda exp, spec = 0: [ extract_model(exp, run, spec) for run in subdirs(exp['path']) ] 
+  fetch_models = lambda exp: [ extract_model(exp, run) for run in subdirs(exp['path']) ] 
   experiments = [{**exp, 'data': { name: process_data(exp, *scalar) for name, scalar in metrics }, 'models': fetch_models(exp)} for exp in experiments]
   progressbar.close()
 
@@ -137,4 +139,11 @@ def process_eval(specs, models):
   data = [(model, make_env(model, spec)) for model,spec in zip(models,specs)]
   eval = [evaluate_policy(*args, n_eval_episodes=1)[0] for args in data ]
   return (eval, data[0][1].get_attr('reward_threshold')[0])
-
+  
+  # NonDeterministic \w Termination Reason accumulateion 
+  # tr = data[0][1].get_attr('termination_reasons')[0]
+  # def callback(g,l): 
+  #   if 'episode' in g['info']: tr[g['info']['extra_observations']['termination_reason']] += 1
+  # eval = [r for args in data for r in evaluate_policy(*args, n_eval_episodes=10, deterministic=False, return_episode_rewards=True, callback=callback)[0]]
+  # print(tr)
+  
