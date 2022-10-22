@@ -82,16 +82,17 @@ def group_experiments(experiments, groupby=['algorithm', 'env'], label_excl=[], 
   def hue(index): index[0] += 1; return 360 / index[1] * index[0] - 180/(index[1] * index[0]); #32; 180
 
   # Create product of all occuances of specified groups, zip with group titles & add size and a counter of visited group items
+  def merge(experiments, key):
+    values = {exp[key]:'' for exp in experiments}.keys(); get = lambda d,k,*r: get(d[k],*r) if len(r) else d[k]
+    merge = lambda val, *k: [item for exp in experiments for item in get(exp,*k) if exp[key]==val] 
+    extract = lambda val, k, *r, p=[]: {k: extract(val, *r, p=[*p,k])} if len(r) else {k: merge(val, *p, k) } 
+    data = lambda val: {k:v for key in experiments[0]['data'] for k,v in extract(val, 'data', key)['data'].items()}
+    return[{key:val,  **extract(val, 'models'), 'data': data(val)} for val in values]
+  if mergeon is not None: experiments = merge(experiments, mergeon)
   options = list(itertools.product(*[ list(dict.fromkeys([exp[group] for exp in experiments])) for group in groupby ]))
   ingroup = lambda experiment, group: all([experiment[k] == v for k,v in zip(groupby, group)])
   options = list(zip(options, [[ title(exp) for exp in experiments if ingroup(exp,group)] for group in options ]))
   options = [(group, [0, len(titles)], titles[0]) for group, titles in options]
-  def merge(data, key):
-    values = {exp[key]:'' for exp in data}.keys(); get = lambda d,k,*r: get(d[k],*r) if len(r) else d[k]
-    merge = lambda val, *k: [item for exp in data for item in get(exp,*k) if exp[key]==val] 
-    extract = lambda val, k, *r, p=[]: {k: extract(val, *r, p=[*p,k])} if len(r) else {k: merge(val, *p, k) } 
-    return[{key:val,  **extract(val, 'models'), **extract(val, 'data', 'Evaluation Training')} for val in values]
-  if mergeon is not None: experiments = merge(experiments, mergeon)
   getgraph = lambda exp, index: { 'label': label(exp), 'data': exp['data'], 'models': exp['models'], 'hue': hue(index)} 
   return [{'title': title, 'graphs': [ getgraph(exp, index) for exp in experiments if ingroup(exp, group) ] } for group, index, title in options ]
 
