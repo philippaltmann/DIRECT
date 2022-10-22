@@ -21,14 +21,17 @@ parser.add_argument('base', default='./results', help='The results root')
 parser.add_argument('-a', dest='alg', help='Algorithm to vizualise.')
 parser.add_argument('-b', dest='baseline', help='Base path of reloaded model.')
 parser.add_argument('-e', dest='env', help='Environment to vizualise.')
-parser.add_argument('-g', dest='groupby', nargs='+', default=['algorithm', 'env'], metavar="groupby", help='Experiment keys to group plotted data by.')
-parser.add_argument('-m', dest='metrics', nargs='+', default=['Return', 'Steps'], choices=options.keys(), help='Experiment keys to group plotted data by.')
-parser.add_argument('-hm', dest='heatmap', nargs='+', default=[], help='Environment to vizualise.')
-parser.add_argument('-nd', dest='dump_csv', action='store_false', help='Skip csv dump')
+parser.add_argument('-g', dest='groupby', nargs='+', default=[], metavar="groupby", help='Experiment keys to group plotted data by.')
+parser.add_argument('-m', dest='metrics', nargs='+', default=[], choices=options.keys(), help='Experiment keys to group plotted data by.')
+parser.add_argument('--heatmap', nargs='+', default=[], help='Environment to vizualise.')
+parser.add_argument('--mergeon', help='Key to merge experiments e.g. algorithm.')
+parser.add_argument('--no-dump', dest='dump_csv', action='store_false', help='Skip csv dump')
 parser.add_argument('--eval', nargs='+', default=[], help='Run Evaluations')
 
 tryint = lambda s: int(s) if s.isdigit() else s
-args = vars(parser.parse_args()); groupby = args.pop('groupby'); hm = [tryint(s) for s in args.pop('heatmap')]
+args = vars(parser.parse_args()) 
+hm = [tryint(s) for s in args.pop('heatmap')]
+groupby = args.pop('groupby'); mergeon = args.pop('mergeon');
 if len(hm): options['Heatmap'] = (('Model', hm), process_heatmap, plot_heatmap); args['metrics'].append('Heatmap') 
 
 enames = ['Evaluation Training', 'Evaluation Shifted Obs', 'Evaluation Shifted Obs 2', 'Evaluation Shifted Goal']
@@ -41,7 +44,7 @@ label_exclude =  [] if args['alg'] and args['alg'] == 'DIRECT' else ['chi', 'ome
 
 # Load, sort and group experiments, calculate metrics and generate figures
 experiments = fetch_experiments(**args, metrics=list(zip(titles, scalars)))
-experiments = group_experiments(experiments, groupby, label_exclude)
+experiments = group_experiments(experiments, groupby, label_exclude, mergeon)
 metrics = calculate_metrics(experiments, list(zip(titles, procs)))
 figures = generate_figures(metrics, dict(zip(titles, plotters)))
 
