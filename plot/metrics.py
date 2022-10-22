@@ -74,7 +74,7 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
   return experiments
 
 
-def group_experiments(experiments, groupby=['algorithm', 'env'], label_excl=[]):
+def group_experiments(experiments, groupby=['algorithm', 'env'], label_excl=[], mergeon=None): #merge=None
   # Graphical helpers for titles, labels
   forms = {'algorithm':'{}', 'env':'{}', 'chi': 'Χ: {:.1f}', 'omega':  'ω: {:.2f}', 'kappa': 'κ: {:d}'}
   label = lambda exp, excl=label_excl: ' '.join([f.format(exp[key]) for key, f in forms.items() if key in exp and key not in groupby + excl])
@@ -86,6 +86,12 @@ def group_experiments(experiments, groupby=['algorithm', 'env'], label_excl=[]):
   ingroup = lambda experiment, group: all([experiment[k] == v for k,v in zip(groupby, group)])
   options = list(zip(options, [[ title(exp) for exp in experiments if ingroup(exp,group)] for group in options ]))
   options = [(group, [0, len(titles)], titles[0]) for group, titles in options]
+  def merge(data, key):
+    values = {exp[key]:'' for exp in data}.keys(); get = lambda d,k,*r: get(d[k],*r) if len(r) else d[k]
+    merge = lambda val, *k: [item for exp in data for item in get(exp,*k) if exp[key]==val] 
+    extract = lambda val, k, *r, p=[]: {k: extract(val, *r, p=[*p,k])} if len(r) else {k: merge(val, *p, k) } 
+    return[{key:val,  **extract(val, 'models'), **extract(val, 'data', 'Evaluation Training')} for val in values]
+  if mergeon is not None: experiments = merge(experiments, mergeon)
   getgraph = lambda exp, index: { 'label': label(exp), 'data': exp['data'], 'models': exp['models'], 'hue': hue(index)} 
   return [{'title': title, 'graphs': [ getgraph(exp, index) for exp in experiments if ingroup(exp, group) ] } for group, index, title in options ]
 
