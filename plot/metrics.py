@@ -61,7 +61,8 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
     if name == 'Model': return key
     data = fetch_data(exp, run.path, name, key)
     if baseline is None: return data
-    prev = fetch_data(exp, run.path.replace(base, baseline), name, key)
+    path = run.path.replace(base, baseline).replace(exp['env'], 'TrainingDense' if 'Dense' in exp['env'] else 'TrainingSparse')
+    prev = fetch_data(exp, path, name, key)
     data.index = data.index - prev.index[-1] # Norm by last baseline index
     return data
   
