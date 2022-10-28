@@ -1,6 +1,7 @@
 """ Generic Algorithm Class extending BaseAlgorithm with features needed by the training pipeline """
 import numpy as np; import pandas as pd
 import torch as th; import scipy.stats as st
+import random
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.policies import ActorCriticPolicy, obs_as_tensor as obs
@@ -19,16 +20,20 @@ class TrainableAlgorithm(BaseAlgorithm):
     :param path: (str) the log location for tensorboard (if None, no logging) """
     if envs: kwargs['env'] = envs['train']
     self.envs, self.normalize, self.path, self.silent = envs, normalize, path, silent
-    self.eval_frequency, self.progress_bar = None, None
+    self.eval_frequency, self.progress_bar, self._suffix = None, None, 'baseline'
     super().__init__(policy=policy, verbose=0, **kwargs)
     
   def _setup_model(self) -> None:
     if self.normalize: self.env = VecNormalize(self.env)
+    path = lambda seed: f"{self.path}/{type(self).__name__}/{self._suffix}/{seed}"
+    gen_seed = lambda s=random.randint(0, 999): s if not os.path.isdir(path(s)) else gen_seed()
+    if self.seed is None: self.seed = gen_seed()
+    self.path = path(self.seed) if not self.silent else None
     self._naming = {'l': 'length-100', 'r': 'return-100', 's': 'safety-100'}; self._custom_scalars = {}
     self.get_actions = lambda s: self.policy.get_distribution(s).distribution.probs.cpu().detach().numpy()
     self.heatmap_iterations = { 'policy': (lambda _, s, a, r: self.get_actions(obs(s, self.device))[0][a], (0,1)) }
     super(TrainableAlgorithm, self)._setup_model()
-    self.writer, self._registered_ci = SummaryWriter(log_dir=self.path) if self.path and not self.silent else None, []
+    self.writer, self._registered_ci = SummaryWriter(self.path) if self.path else None, [] #if self.path and not self.silent
     if not self.silent: print("+-------------------------------------------------------+\n"\
       f"| System: {platform.platform()} |\n| Version: {platform.version()} |\n" \
       f"| GPU: {f'Enabled, version {th.version.cuda} on {th.cuda.get_device_name(0)}' if th.cuda.is_available() else'Disabled'} |\n"\
@@ -133,10 +138,13 @@ class TrainableAlgorithm(BaseAlgorithm):
     kwargs['path'] = self.path + name; super(TrainableAlgorithm, self).save(**kwargs)
 
   @classmethod
-  def load(cls, load, envs: Dict[str,VecEnv], path, **kwargs) -> "TrainableAlgorithm":
-    kwargs['env'] = envs['train']; kwargs['envs'] = envs; load = f"{load}/model/train"
+  def load(cls, load, path, envs: Dict[str,VecEnv]=None, silent=False, **kwargs) -> "TrainableAlgorithm":
+    # TODO: get load path automated based on base path (gloablize path finding)
+    if envs: kwargs = {'env': envs['train'], 'envs': envs, 'silent': silent, **kwargs};
+    load = f"{load}/model/train"
     assert os.path.exists(load+'.zip'), f"Attempting to load a model from {load} that does not exist"
     model = super(TrainableAlgorithm, cls).load(load, **kwargs)
-    model.path = path; model.writer = SummaryWriter(log_dir=model.path)
+    model.path = f"{path}/{type(model).__name__}/{model._suffix}/{model.seed}" if not silent else None
+    model.writer = SummaryWriter(log_dir=model.path) if model.path else None
     model.num_timesteps -= model.num_timesteps%(model.n_steps * model.n_envs)
     return model
