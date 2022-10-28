@@ -17,13 +17,15 @@ class DIRECT(TrainableAlgorithm):
       see Discriminator class for full description
   :param **kwargs: further parameters will be passed to TrainableAlgorithm, then PPO"""
 
-  def __init__(self, chi:float=1., kappa:int=2048, omega:float=1/2, disc_kwargs:Dict[str,Any]={}, **kwargs):
-    self.buffer = None
-    self.chi = chi; assert chi <= 1.0
-    self.kappa = kappa; assert kappa > 0
-    self.omega = omega; assert 0 < omega < 10
-    self.discriminator, self.disc_kwargs = None, disc_kwargs  
-    super().__init__(**kwargs)
+  def __init__(self, chi:float=None, kappa:int=None, omega:float=None, disc_kwargs:Dict[str,Any]={}, _init_setup_model=True,  **kwargs):
+    self.buffer = None; self.discriminator, self.disc_kwargs = None, disc_kwargs  
+    super().__init__(_init_setup_model=False, **kwargs); sparse = self.env.get_attr('sparse')[0]    
+    self.chi = chi if chi is not None else 1.0 if sparse else 0.5; assert self.chi <= 1.0
+    self.kappa = kappa if kappa is not None else 2048; assert self.kappa > 0
+    self.omega = omega if omega is not None else 0.5 if sparse else 2.0; assert 0 < self.omega < 10
+    self._suffix = f"{self.chi}_{self.omega}_{self.kappa}" # if args['algorithm'] == "DIRECT" else 'baseline'
+    if _init_setup_model: self._setup_model()
+
 
   def _setup_model(self) -> None: 
     super(DIRECT, self)._setup_model(); self._naming.update({'d': 'direct-100'}) 
