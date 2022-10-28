@@ -23,13 +23,13 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
   # Helper to fetch all relevant folders 
   subdirs = lambda dir: [d for d in os.scandir(dir) if d.is_dir()]
 
-  print(f"Scanning for {alg if alg else 'algorithms'} in {base}")  # First layer: Algorithms
-  if alg: experiments = [{'algorithm': alg, 'path':f'{base}/{alg}'}]
-  else: experiments = [{'algorithm': a.name, 'path': a.path} for a in subdirs(base) if a.name in ALGS]
+  print(f"Scanning for {env if env else 'environments'} in {base}")  # First layer: Environments
+  if env: experiments = [{'path':f'{base}/{env}', 'env': env}]
+  else: experiments = [{'env': e.name, 'path': e.path} for e in subdirs(base) if e.name != 'plots']
 
-  print(f"Scanning for {env if env else 'environments'} in {base}")  # Second layer: Environments
-  if env: experiments = [{**exp, 'env': env, 'path': f'{exp["path"]}/{env}'} for exp in experiments]
-  else: experiments = [{**exp, 'env': e.name, 'path': e} for exp in tqdm(experiments) for e in subdirs(exp['path'])]
+  print(f"Scanning for {alg if alg else 'algorithms'} in {base}")  # Second layer: Algorithms
+  if alg: experiments = [{**exp, 'algorithm': alg, 'path': f'{exp["path"]}/{alg}'} for exp in tqdm(experiments)]
+  else: experiments = [{**exp, 'algorithm': a.name, 'path': a} for exp in tqdm(experiments) for a in subdirs(exp['path']) if a.name in ALGS]
 
   print(f"Scanning for hyperparameters in {base}")  # Third layer: Hyperparameters & number of runs
   hp = lambda name: dict(zip(['chi','omega','kappa'], parse('{:.1f}_{:.1f}_{:d}', name) or []))
