@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.tri import Triangulation
+from scipy.stats import percentileofscore
 import plotly.graph_objects as go
 
 def heatmap_2D(data, vmin=0, vmax=1):
@@ -40,18 +41,18 @@ def heatmap_2D(data, vmin=0, vmax=1):
   return figure
 
 
-def heatmap_3D(data, vmin=0, vmax=1, show_agent=False):
-  rows,cols  = data.shape[0:2] # extract iteration data and arguments
-  
-  # Value range and coloration helpers
-  fltd = [np.mean(v) for row in data for col in row for v in col if v is not None and not None in v]
-  vmin = min(fltd) if vmin is None else vmin; vmax = max(fltd) if vmax is None else vmax
-  pct = lambda v: (np.mean(v)-vmin)/(vmax-vmin); opc = lambda v: 1-np.var(v)/(vmax-vmin)**2*2 # alt: 1-np.std(test)/(10-0)*2
-  lookup = {'f':'hsl({:0.0f},{:0.0f}%,80%)', 'g':'hsl(140,100%,50%)', 'l': 'hsl(0,100%,50%)', 'w': 'rgba(192,192,192,0.5)'}
-  color = lambda v: lookup[v] if type(v) == str and v in ['a','g','l','w'] else lookup['f'].format(pct(v)*140, opc(v)*100)
-  # lookup = {'f':'hsla({:0.0f},80%,40%,{:1.2f})', 'g':'hsl(140,100%,60%)', 'l': 'hsl(0,100%,60%)', 'w': 'rgba(192,192,192,0.5)'}
-  # color = lambda v: lookup[v] if type(v) == str and v in ['g','l','w'] else lookup['f'].format(pct(v)*120, opc(v)) #140
-  t = lambda c,r: 'w' if r in [0,rows-1] or c in [0,cols-1] else 'g' if r in [1,rows-2] and c in [1,cols-2] else 'l'
+def heatmap_3D(data, show_agent=False, compress=False):
+  if compress: data = data[1:-1,1:-1] # Crop walls[[field for field in row[1:-1]] for row in data[1:-1]]
+  mean = lambda v: round(np.mean(v),np.mean(v)<10); rows,cols = data.shape[0:2]
+
+  fltd = np.array([mean(v) for row in data for col in row for v in col if v is not None and not None in v])
+  pct = lambda v: max(min(percentileofscore(fltd, mean(v)) / 100, 1), 0)
+  lookup = {'g':'hsl(140,100%,50%)', 'l': 'hsl(0,100%,50%)', 'w': 'rgba(192,192,192,0.5)'}
+  _heat = lambda v: 'hsl({:0.0f},80%,{:0.0f}%)'.format(pct(v)*140, 75-30*abs((pct(v)-1/3)*3/2))
+  color = lambda v: lookup[v] if type(v) == str and v in ['a','g','l','w'] else _heat(v) 
+  _w = lambda c,r: not compress and (r in [0,rows-1] or c in [0,cols-1])
+  _g = lambda c,r: r in [1-compress,rows-2+compress] and c in [1-compress,cols-2+compress] 
+  t = lambda c,r: 'w' if _w(c,r) else 'g' if _g(c,r) else 'l'
   
   # Reference Point constructors for triangulations
   ct = lambda c,r,h=0: (c,r,h) # Helper points at c(ollumn), r(ow), h(ight) for w(idth)
@@ -63,25 +64,26 @@ def heatmap_3D(data, vmin=0, vmax=1, show_agent=False):
   uc = lambda c,r,w=0.3: (c, r-w, 0.1); rc = lambda c,r,w=0.3: (c+w, r, 0.1)
   dc = lambda c,r,w=0.3: (c, r+w, 0.1); lc = lambda c,r,w=0.3: (c-w, r, 0.1)
   labels = lambda c,r: [uc(c,r),lc(c,r),dc(c,r),rc(c,r)]
-  txt = lambda c,r,val: [(*p, f'{np.mean(v):.2f}', 'black') for p,v in zip(labels(c,r), val)] if not None in val.flat else []
+  txt = lambda c,r,val: [(*p, f'{mean(v):,g}', 'black') for p,v in zip(labels(c,r), val)] if not None in val.flat else []
 
   # Indices of points to build triangle (up, right, down, left)
   _adapt = lambda c,r,t: tuple(map(lambda v: v+9*(r*cols+c),t))
   triang = lambda c,r,i: _adapt(c,r, [(0,1,2), (0,4,1), (0,3,4), (0,2,3)][i]) #urdl(0,1,2), (0,2,3), (0,3,4), (0,4,1)
+  border = lambda c,r: [ul(c,r), dl(c,r), dr(c,r), ul(c,r), dl(c,r), ur(c,r), dr(c,r), ul(c,r), ur(c,r), dr(c,r)]
   square = lambda c,r: [_adapt(c,r,v) for v in [(1,2,3), (1,3,4), (6,7,8), (5,6,8), (1,2,6), (2,5,6), (2,3,6), (3,6,7), (3,4,8), (3,7,8), (1,4,8), (1,5,8)]]
   field = lambda c,r,val: [] if None in val.flat else [(*triang(c,r,i), color(v)) for i,v in enumerate(val)] 
   cube = lambda c,r,val: [(*f, color(t(c,r))) for f in square(c,r)] if None in val.flat else []
   agent = lambda c,r,val: [(*f, 'hsl(210,100%,50%)') for f in square(c,r)] if show_agent and c==cols-2 and r==1 else []
-
   process = lambda *f: np.array([result for fn in f for r, row in enumerate(data) for c,val in enumerate(reversed(row)) for result in fn(c,r,val)]).T.tolist()
 
   p = dict(zip(['x','y','z'], process(points))); f = dict(zip(['i','j','k','facecolor'], process(field, cube, agent)))
-  l = dict(zip(['x','y','z','text','textfont'], process(txt))); l['textfont'] = {'color': l['textfont'], 'size':8} 
+  b = dict(zip(['x','y','z'], process(lambda c,r,val: [] if None in val.flat else border(c,r))))
+  l = dict(zip(['x','y','z','text','textfont'], process(txt))); l['textfont'] = {'color': l['textfont'], 'size':20} 
 
   mesh=go.Mesh3d(**p, **f) 
+  lines = go.Scatter3d(**b, mode='lines', marker={'color':'black'})
   text=go.Scatter3d(**l, mode='text', textposition='middle center') 
-
-  axis = {'showbackground':False, 'tickmode': 'linear', 'range':[-0.5,max(data.shape)-0.5], 'visible': False} 
-  scene = {'xaxis':axis, 'yaxis':axis, 'zaxis':axis, 'camera': {'eye': {'x':0, 'y':0.125, 'z':0.6}}} 
-  layout = go.Layout(margin=dict(l=8,r=8,t=8,b=8), width=900, height=600, scene=scene) #title=title
-  return go.Figure(data=[mesh,text], layout=layout)
+  axis = {'showbackground':False, 'tickmode': 'linear', 'range':[-0.5,max(cols,rows)-0.5], 'visible': False} 
+  scene = {'xaxis':axis, 'yaxis':axis, 'zaxis':axis, 'camera': {'eye': {'x':0, 'y':0.125+compress*0.05, 'z':0.6-compress*0.1}}} 
+  layout = go.Layout(margin={'l':0,'r':0,'t':0,'b':0}, width=855, height=600, scene=scene,  showlegend=False) #title=title
+  return go.Figure(data=[mesh,lines,text], layout=layout)
