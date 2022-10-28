@@ -83,7 +83,10 @@ SAFETY_ENVS = {
 """
 
 # Env Creation Helpers 
-env_name = lambda env: env_spec(env)._env_name
+name_lookup = {'DistributionalShift': 'Dense', 'DistributionalShift-Sparse': 'Sparse'}
+spec_lookup = {'0': 'Training', '1': 'ObstacleShift', '2': 'TargetShift'}
+env_name = lambda name, spec: spec_lookup[spec] + name_lookup[name]
+env_conf = lambda name: { sv+nv: (nk, sk)for nk,nv in name_lookup.items() for sk, sv in spec_lookup.items() }[name]
 env_spec = lambda env: env.get_attr('env')[0].spec
 
 env_id = lambda name, key: "{}-v{}".format(name, key) if isinstance(key, int) else "{}{}-v0".format(name, str(key).capitalize())
