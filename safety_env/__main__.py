@@ -1,5 +1,5 @@
-import argparse; import numpy as np; import plotly.graph_objects as go; import gym
-from safety_env import *#factory, SAFETY_ENVS, heatmap_2D, heatmap_3D, env_id, en
+import argparse; import numpy as np;
+import gym; from safety_env import *
 
 env_names = [''.join([env,mode]) for env in SAFETY_ENVS.keys() for mode in ['', '-Sparse']]
 
@@ -21,7 +21,6 @@ if len(specs):
   name, sparse = (args.env_name[:-7], True) if args.env_name.endswith('-Sparse') else (args.env_name, False)
   envs = { env_id(args.env_name, spec): make(name, spec, seed=args.seed, wrapper_kwargs={ "sparse": sparse }) for spec in specs }
   reward_data = { key: np.expand_dims(np.array(env.envs[0].iterate()), axis=3) for key, env in envs.items() }
-  [heatmap_3D(data, -51,49, show_agent=True).write_image(f'results/plots/{key}-3D.pdf') for key, data in reward_data.items()]
-
+  [heatmap_3D(data, show_agent=True).write_image(f'results/plots/{key}-3D.pdf') for key, data in reward_data.items()]
   # reward_data = { f"{args.env_name}_{tag}": env.envs[0].iterate() for tag, env in envs['test'].items() }
   # [heatmap_2D(data, -51,49).savefig(f'results/plots/{key}.png') for key, data in reward_data.items()]
