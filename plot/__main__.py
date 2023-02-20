@@ -1,21 +1,4 @@
-"""Example commands:
-Test evaluation
-python -m plot plot/results/train -g env --eval 0 1 3
-python -m plot plot/results/train --mergeon algorithm --eval 0 1 3
-
-Generate Training plots:
-python -m plot experiments/1-Train -m Return Steps -g env 
-python -m plot experiments/1-Train -g env -a DIRECT --heatmap 0 1 3
-python -m plot experiments/1-Train --mergeon algorithm --eval 0 1 3
-
-Generate Adaptation plots:
-python -m plot experiments/2-Adapt -b experiments/1-Train -m Return Steps -g env 
-python -m plot experiments/2-Adapt -g env -a DIRECT --heatmap 0 1 3
-python -m plot experiments/2-Adapt --mergeon algorithm --eval 0 1 3
-python -m plot experiments/2-Adapt -g env --eval 0 1 3
-"""
-
-import argparse; import time; import os; 
+import argparse; import os; 
 from plot.metrics import *
 from plot.plotting import * 
 

@@ -1,8 +1,8 @@
 import os; from os import path; import itertools; from parse import parse; from tqdm import tqdm
-from tensorboard.backend.event_processing.event_accumulator import EventAccumulator as EA
 import pandas as pd; import numpy as np; import scipy.stats as st
-from safety_env import factory, make, env_name, env_spec; from algorithm import *
-from run import env_conf
+from stable_baselines3.common.evaluation import evaluate_policy
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator as EA
+from safety_env import factory, make, env_conf, env_spec; from algorithm import *
 
 def extract_model(exp, run):
   algorithm, seed = eval(exp['algorithm']), int(run.name)
@@ -24,7 +24,7 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
   subdirs = lambda dir: [d for d in os.scandir(dir) if d.is_dir()]
 
   print(f"Scanning for {env if env else 'environments'} in {base}")  # First layer: Environments
-  if env: experiments = [{'path':f'{base}/{env}', 'env': env}]
+  if env: experiments = [{'env': e.name, 'path': e.path} for e in subdirs(base) if env in e.name]
   else: experiments = [{'env': e.name, 'path': e.path} for e in subdirs(base) if e.name != 'plots']
 
   print(f"Scanning for {alg if alg else 'algorithms'} in {base}")  # Second layer: Algorithms
@@ -135,15 +135,14 @@ def process_steps(data, models): return ([d.index[-1] for d in data], 10e5)
 iterate = lambda model, envs, func: [ func(env, k,i) for env in envs for k,i in model.heatmap_iterations.items() ]
 heatmap = lambda model, envs: iterate(model, envs, lambda env, k,i: env.envs[0].iterate(i[0]))
 metadata = lambda model, envs: iterate(model, envs, lambda env, k,i: (f'{k.capitalize()} Env-{env_spec(env).id[-1]}', i[1]))
-make_env = lambda model, spec: make(env_name(model.envs['train']), spec, seed=model.seed)
+make_env = lambda model, spec: make(env_spec(model.envs['train'])._env_name, spec, seed=model.seed)
 
 def process_heatmap(specs, models):
   setting = list(zip(models, [[make_env(model, s) for s in spec] for model,spec in zip(models,specs)]))
-  return { k:(d,a) for (k,a),d in zip(metadata(*setting[0]), np.moveaxis(np.array([heatmap(*s) for s in setting]), 0, -1))} 
+  return { k:d for (k,a),d in zip(metadata(*setting[0]), np.moveaxis(np.array([heatmap(*s) for s in setting]), 0, -1))} 
 
 
 def process_eval(specs, models, deterministic=True):
-  from stable_baselines3.common.evaluation import evaluate_policy
   data = [(model, make_env(model, spec)) for model,spec in zip(models,specs)]
   termination_reasons = data[0][1].get_attr('termination_reasons')[0]
   def callback(g,l): 
