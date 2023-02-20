@@ -9,6 +9,8 @@ def plot_box(plot, y=None):
   box = lambda g: go.Box(name=g['label'], y=g['data'][0], marker_color=color(g['hue']), boxmean=True) 
   figure = go.Figure(layout=layout( y=y or plot['metric']), data=[box(g) for g in plot['graphs']])
   # **dict(zip(['y','title'], title(plot,y)))
+  figure = go.Figure(layout=layout( y=y or plot['metric']), data=[box(g) for g in plot['graphs']])
+  # **dict(zip(['y','title'], title(plot,y)))
   figure.add_hline(y=plot['graphs'][0]['data'][1], line_dash = 'dash', line_color = 'rgb(64, 64, 64)')
   return {' '.join(title(plot)): figure}
 
@@ -46,8 +48,15 @@ def plot_eval(plot):
   return { _t('Termination'): pie,_t('Reward'): box }
   # plot['title'] =''#= plot['title'] + plot['metric']; plot['metric'] = 'Reward'; 
   return dict(zip([plot['metric']],plot_box(plot, 'Mean Return').values()))
+  box = list(plot_box({**plot, 'graphs': [{**g, 'data': g['data'][:2]}for g in plot['graphs']]}, 'Mean Return').values())[0]
+  pie = plot_pie([{'label': g['label'], 'data': g['data'][2]}for g in plot['graphs']])
+  _t = lambda type: f"Evaluation/{type} {plot['metric']} ({plot['title']})"
+  return { _t('Termination'): pie,_t('Reward'): box }
+  # plot['title'] =''#= plot['title'] + plot['metric']; plot['metric'] = 'Reward'; 
+  return dict(zip([plot['metric']],plot_box(plot, 'Mean Return').values()))
 
 
+def plot_heatmap(plot): return {f'Heatmaps/{plot["title"]}': heatmap_3D(plot['data'], compress=True)}
 def plot_heatmap(plot): return {f'Heatmaps/{plot["title"]}': heatmap_3D(plot['data'], compress=True)}
 
 
@@ -60,6 +69,9 @@ def layout(title=None, legend=True, wide=True, x='', y=''):
   axis = lambda title: {'gridcolor': 'rgba(64, 64, 64, 0.32)', 'linecolor': 'rgb(64, 64, 64)', 'title': title,
     'mirror':True, 'ticks':'outside', 'showline':True, 'zeroline': True, 'zerolinecolor': 'rgba(64, 64, 64, 0.32)'} 
     #'tickmode': 'linear', 'range':[-0.5,max(data.shape)-0.5], 
+  return go.Layout( title=title, showlegend=legend, font=dict(size=24), 
+    margin=dict(l=8, r=8, t=8+(72 * (title is not None)), b=8), width=600+200*wide+100*legend, height=400, 
+    xaxis=axis(x), yaxis=axis(y), plot_bgcolor='rgba(64,64,64,0.04)') #, paper_bgcolor='rgba(0,0,0,0)', 
   return go.Layout( title=title, showlegend=legend, font=dict(size=24), 
     margin=dict(l=8, r=8, t=8+(72 * (title is not None)), b=8), width=600+200*wide+100*legend, height=400, 
     xaxis=axis(x), yaxis=axis(y), plot_bgcolor='rgba(64,64,64,0.04)') #, paper_bgcolor='rgba(0,0,0,0)', 
