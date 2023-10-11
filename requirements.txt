@@ -8,3 +8,4 @@ plotly
 kaleido
 tqdm
 ffmpeg
+psutil
