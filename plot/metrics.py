@@ -2,7 +2,7 @@ import os; from os import path; import itertools; from parse import parse; from 
 import pandas as pd; import numpy as np; import scipy.stats as st
 from stable_baselines3.common.evaluation import evaluate_policy
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator as EA
-from safety_env import factory, make, env_conf, env_spec; from algorithm import *
+from safety_env import factory, make, env_conf, env_spec; from baselines import *
 
 def extract_model(exp, run):
   algorithm, seed = eval(exp['algorithm']), int(run.name)
