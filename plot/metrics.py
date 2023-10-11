@@ -4,15 +4,12 @@ import pandas as pd; import numpy as np; import scipy.stats as st; import re
 from stable_baselines3.common.evaluation import evaluate_policy
 import gymnasium as gym; from hyphi_gym import named, Monitor
 from stable_baselines3.common.monitor import Monitor as SBM
-from benchmark import *
+from baselines import *
 
 def extract_model(exp, run):
-  if exp['explorer'] not in ['Random', 'LOAD']: 
-    algorithm, seed = eval(exp['explorer']), int(run.name)
-  else: algorithm, seed = eval(exp['algorithm']), int(run.name)
-  pre = algorithm.load(load=run.path, phase='pre', seed=seed, envs=[exp['env']], path=None, device='cpu', silent=True)
-  train = algorithm.load(load=run.path, seed=seed, envs=[exp['env']], path=None, device='cpu', silent=True)
-  return {'pre': pre, 'train': train}
+  algorithm, seed = eval(exp['algorithm']), int(run.name)
+  model = algorithm.load(load=run.path, seed=seed, envs=[exp['env']], path=None, device='cpu', silent=True)
+  return model
 
 def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv=False, baseline=None):
   """Loads and structures all tb log files Given:
@@ -32,8 +29,7 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
 
   print(f"Scanning for {alg if alg else 'algorithms'} in {base}")  # Second layer: Algorithms
   if alg: experiments = [{**exp, 'algorithm': alg, 'path': a} for exp in tqdm(experiments) for a in subdirs(exp['path']) if alg == a.name]
-  else: experiments = [{**exp, 'algorithm': a.name, 'path': a} for exp in tqdm(experiments) for a in subdirs(exp['path']) if any([n in ALGS for n in a.name.split('-')])]
-  experiments = [{**e, 'algorithm': e['algorithm'].split('-')[-1], 'explorer': e['algorithm'].split('-')[0] if len(e['algorithm'].split('-'))>1 else 'Random'} for e in tqdm(experiments)]
+  else: experiments = [{**exp, 'algorithm': a.name, 'path': a} for exp in tqdm(experiments) for a in subdirs(exp['path']) if a.name in ALGS]
 
 
   # Third Layer: Count Runs / fetch tb files
@@ -48,32 +44,28 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
     # Load data from csv if possible
     if path.isfile(f'{run_path}/{name}.csv'): return pd.read_csv(f'{run_path}/{name}.csv').set_index('Step')
     if 'Model' in key: return f'{run_path}/{name}.csv' if dump_csv else None
-    if 'Buffer' in name and 'GRASP' not in run_path: return None
+    if 'Buffer' in name and 'DIRECT' not in run_path: return None
 
     # Use buffered Event Accumulator if already open
     if log := data_buffer.get(run_path):
       extract_args = {'columns': ['Time', 'Step', 'Data'], 'index': 'Step', 'exclude': ['Time']}
       data = pd.DataFrame.from_records([(s.wall_time, s.step, s.value) for s in log.Scalars(key)], **extract_args)
       data = data.loc[~data.index.duplicated(keep='first')] # Remove duplicate indexes
-      # if exp['explorer'] in ['GAIN', 'GRASP']: data.iloc[0] = -100
       if name == 'Training': data.iloc[0] = np.NaN  # Remove initial zero
       if 'Buffer' in name: data = pd.concat([pd.DataFrame([0], columns=['Data']), data]) / 2048; data.index.name = 'Step'
       if dump_csv: data.to_csv(f'{run_path}/{name}.csv')
       return data
-    tb_path = run_path+("/explore/" if '-pre' in name else "/train/")
-    data_buffer.update({run_path: EA(tb_path).Reload()})
+    data_buffer.update({run_path: EA("/train/").Reload()})
     return fetch_data(exp, run_path, name, key)
   
   def extract_data(exp, run, name, key):#42*2048*4  #48*2048*4 #52 458752
     progressbar.update()
     data = fetch_data(exp, run.path, name, key)
     
-    if name == 'Training': 
-      if data.index[0] > 0: data.index = data.index - data.index[0]
-      if exp['explorer'] in ['GAIN', 'GRASP']: data.index = data.index + (42*2048*4)/8
+    # if name == 'Training': if data.index[0] > 0: data.index = data.index - data.index[0]
 
     # Load Buffer
-    if 'Buffer' in name and exp['explorer'] in ['GRASP']: 
+    if 'Buffer' in name and exp['algorithm'] in ['DIRECT']: 
       data = (data, np.load(f'{run.path}/buffer.npy'))
 
     return data
@@ -91,12 +83,12 @@ def fetch_experiments(base='./results', alg=None, env=None, metrics=[], dump_csv
 
 def group_experiments(experiments, groupby=['env']): #merge=None
   # Graphical helpers for titles, labels
-  title = lambda exp: ' '.join([exp[key] for key in ['algorithm', 'explorer', 'env'] if key in exp and key in groupby])
+  title = lambda exp: ' '.join([exp[key] for key in ['algorithm', 'env'] if key in exp and key in groupby])
   options = list(itertools.product(*[ list(dict.fromkeys([exp[group] for exp in experiments])) for group in groupby ]))
   ingroup = lambda experiment, group: all([experiment[k] == v for k,v in zip(groupby, group)])
   options = list(zip(options, [[ title(exp) for exp in experiments if ingroup(exp,group)] for group in options ]))
   options = [(group, [0, len(titles)], titles[0]) for group, titles in options]
-  getgraph = lambda exp, index: { 'label': f"{exp['algorithm']}-{exp['explorer']}", **exp}  #'models': exp['models'], 'env': exp['env']
+  getgraph = lambda exp, index: { 'label': f"{exp['algorithm']}", **exp}  #'models': exp['models'], 'env': exp['env']
   return [{'title': title, **dict(zip(groupby,group)), 'graphs': [ getgraph(exp, index) for exp in experiments if ingroup(exp, group) ] } for group, index, title in options ]
 
 
@@ -170,39 +162,36 @@ def process_return(metric, plot):
 
 
 def process_buffer(metric, plot): 
-  env = plot['env']; env.unwrapped.explore = '-pre' in metric; phase = 'pre' if env.unwrapped.explore else 'train'; 
-  graph = [graph for graph in plot['graphs'] if graph["explorer"] == "GRASP"][0]
+  env = plot['env']; graph = [graph for graph in plot['graphs'] if graph["algorithm"] == "DIRECT"][0]
   momentum, buffers = [list(d) for d in zip(*graph['data'][metric])]
   return [{
     'momentum':{ **plot, 'graphs':  [{ **graph, 'data': prepare_ci(momentum, plot['env'].info['reward_range'])}], 'metric': metric},
     'heatmap': { **plot, 'graphs':  [
-        { **graph, 'data': pd.concat([ prepare_heatmap(env, model[phase], buffer=buffer) for buffer, model in zip(buffers, graph['models'])], axis=1)['Obs'].sum(axis=1)}
+        { **graph, 'data': pd.concat([ prepare_heatmap(env, model, buffer=buffer) for buffer, model in zip(buffers, graph['models'])], axis=1)['Obs'].sum(axis=1)}
       ], 'metric': metric}, 'metric': metric,
   }]
 
 
 def process_eval(metric, plot):
-  env = plot['env']; env.unwrapped.explore = False; phase = 'pre' if '-pre' in metric else 'train'; 
   def _eval(data, model, progress):
     if isinstance(data, pd.DataFrame): return data
-    R = pd.DataFrame(prepare_eval(env, model)[0], columns=['Return']); R.index.name = 'Step'
+    R = pd.DataFrame(prepare_eval(plot['env'], model)[0], columns=['Return']); R.index.name = 'Step'
     if data is not None: R.to_csv(data)
     progress.update(1)
     return R
   print("Running evaluations")
   with tqdm(total=len(plot['graphs'])*len(plot['graphs'][0]['models'])) as progress:
     return [{ **plot, 'graphs':  [{ 
-      **graph, 'data': pd.concat([_eval(data, model[phase], progress) for data, model in zip(graph['data'][metric], graph['models'])])['Return']
+      **graph, 'data': pd.concat([_eval(data, model, progress) for data, model in zip(graph['data'][metric], graph['models'])])['Return']
     } for graph in plot['graphs']], 'metric': metric}]
 
 
 def process_heatmap(metric, plot):
-  env = plot['env']; env.unwrapped.explore = '-pre' in metric; phase = 'pre' if env.unwrapped.explore else 'train'; 
   print("Processing Heatmaps")
   with tqdm(total=len(plot['graphs'])*len(plot['graphs'][0]['models'])) as progress:
     return [{ **plot, 'graphs':  [{ 
       **graph, 'data': pd.concat([ prepare_heatmap(
-        env, model[phase], data=data, progress=progress
+        plot['env'], model, data=data, progress=progress
       ) for data, model in zip(graph['data'][metric], graph['models'])], axis=1)['Obs'].sum(axis=1)
     } for graph in plot['graphs']], 'metric': metric}]
 

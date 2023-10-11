@@ -1,8 +1,8 @@
 import math; import plotly.graph_objects as go
 
 LAYOUT = {
-  'Buffer-pre': {'x': 'Pre-training Steps', 'y': 'Buffer Momentum', 'width': 500, 'legend': False},
-  'Eval-pre': {'y': 'Validation Return', 'width': 600, 'legend': False},
+  'Buffer': {'x': 'Pre-training Steps', 'y': 'Buffer Momentum', 'width': 500, 'legend': False},
+  'Eval': {'y': 'Validation Return', 'width': 600, 'legend': False},
   'Eval': {'y': 'Validation Return', 'width': 600, 'legend': False},
   'Training': {'x': 'Steps', 'y': 'Mean Return', 'width': 800, 'legend': True}
 }
@@ -28,7 +28,7 @@ AXES = {
 }
 
 title = lambda plot, y=None: [plot["title"], plot["metric"]]
-traceorder = lambda key: [i for k,i in {'GRASP': 0, 'GAIN': 1, 'PPO': 2, 'SAC': 3}.items() if k in key][0]
+traceorder = lambda key: [i for k,i in {'DIRECT': 0, 'PPO': 1, 'SAC': 2, 'DQN': 3, 'VPG': 4}.items() if k in key][0]
 
 # Helper functions to create scatters/graphs from experiment & metric
 def plot_ci(plot, xmax=None):  
@@ -83,7 +83,7 @@ def plot_heatmap(plot, label=None):
   return {f"hm/{''.join(title(plot))}{g['label']}": heatmap(g) for g in plot['graphs']}
 
 def color(g, dim=0): 
-  hue = lambda alg: [hue for key,hue in {'GAIN': 150, 'GRASP': 200, 'TODO': 230, 'SAC':40, 'PPO': 350, 'TODO': 70}.items() if key in alg][0]
+  hue = lambda alg: [hue for key,hue in {'TODO': 150, 'DIRECT': 200, 'TODO': 230, 'SAC':40, 'PPO': 350, 'TODO': 70}.items() if key in alg][0]
   return 'hsva({},{}%,{}%,{:.2f})'.format(hue(g['label']), 90-dim*20, 80+dim*20, 1.0-dim*0.8)
 
 def layout(title=None, legend=True, wide=True, x='', y='', inset=False, width=None):
