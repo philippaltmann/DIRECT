@@ -1,4 +1,4 @@
-from common import TrainableAlgorithm
+from algorithm import TrainableAlgorithm
 from stable_baselines3.a2c import A2C
 
 class VPG(TrainableAlgorithm, A2C):

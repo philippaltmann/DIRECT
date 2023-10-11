@@ -2,7 +2,7 @@ import numpy as np; import torch as th
 from stable_baselines3.a2c import A2C as StableA2C
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from .sil_buffer import PrioritizedReplayBuffer
-from common import TrainableAlgorithm
+from algorithm import TrainableAlgorithm
 
 class SIL(TrainableAlgorithm, StableA2C):
   """A Trainable extension to A2C using Self-Imitation Leanrning (https://arxiv.org/pdf/1806.05635.pdf)

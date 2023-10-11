@@ -1,0 +1,3 @@
+import setuptools
+from algorithm.algorithm import TrainableAlgorithm
+from algorithm.evaluation import EvaluationCallback

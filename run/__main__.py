@@ -1,6 +1,6 @@
 import argparse; import os; import random
 from safety_env import factory, env_name
-from common import TrainableAlgorithm
+from algorithm import TrainableAlgorithm
 from baselines import *
 
 # General Arguments

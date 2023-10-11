@@ -1,4 +1,4 @@
-from common import TrainableAlgorithm
+from algorithm import TrainableAlgorithm
 from stable_baselines3.dqn import DQN as StableDQN
 
 class DQN(TrainableAlgorithm, StableDQN):

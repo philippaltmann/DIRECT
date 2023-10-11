@@ -1,7 +1,7 @@
 from stable_baselines3.common.callbacks import CallbackList
 from typing import Any, Dict, List, Tuple
 
-from common import TrainableAlgorithm
+from algorithm import TrainableAlgorithm
 from . import DirectBuffer, Discriminator, DirectCallback
 
 class DIRECT(TrainableAlgorithm):
