@@ -13,20 +13,18 @@ from .evaluation import EvaluationCallback
 
 
 class TrainableAlgorithm(BaseAlgorithm):
-  def __init__(self, envs:list[str]=None, normalize:bool=False, policy:Union[str,Type[ActorCriticPolicy]]="MlpPolicy", path:Optional[str]=None, seed=None, silent=False, stop_on_reward=False, explore=False, log_name=None, **kwargs):
+  def __init__(self, envs:list[str]=None, normalize:bool=False, policy:Union[str,Type[ActorCriticPolicy]]="MlpPolicy", path:Optional[str]=None, seed=None, silent=False, stop_on_reward=False, **kwargs):
     """ :param env: The environment to learn from (if registered in Gym, can be str)
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...) defaults to MlpPolicy
     :param normalize: whether to use normalized observations, default: False
     :param stop_on_reward: bool for ealry stopping, defaults to False. 
-    :param explore: sets enviornment to explore mode, default False
     :param log_name: optional custom folder name for logging
     :param path: (str) the log location for tensorboard (if None, no logging) """
-    _path = lambda seed: f"{path}/{envs[0]}/{log_name or str(self.__class__.__name__)}/{seed}"
+    _path = lambda seed: f"{path}/{envs[0]}/{str(self.__class__.__name__)}/{seed}"
     gen_seed = lambda s=random.randint(0, 999): s if not os.path.isdir(_path(s)) else gen_seed()
     if seed is None: seed = gen_seed()
     self.path = _path(seed) if path is not None else None; self.eval_frequency, self.progress_bar = None, None
-    if envs is not None: self.envs = factory(envs, seed=seed, explore=explore); 
-    self.explore = explore; self.stop_on_reward = stop_on_reward and not explore
+    if envs is not None: self.envs = factory(envs, seed=seed); self.stop_on_reward = stop_on_reward
     self.normalize, self.silent, self.continue_training = normalize, silent, True; 
     super().__init__(policy=policy, seed=seed, verbose=0, env=self.envs['train'], **kwargs)
     
@@ -38,12 +36,12 @@ class TrainableAlgorithm(BaseAlgorithm):
       'action': (lambda _,s,a,r: self.policy.predict(s.flat, deterministic=True)[0] == a, (0,1)),
       # Prob distributions (coelation of porb index and action number might be misalligned)
       'policy': (lambda _, s, a, r: self.get_actions(s).cpu().detach().numpy()[0][a], (0,1))}
-    super(TrainableAlgorithm, self)._setup_model(); stage = '/explore' if self.explore else '/train'
-    self.writer, self._registered_ci = SummaryWriter(self.path + stage) if self.path and not self.silent else None, [] 
+    super(TrainableAlgorithm, self)._setup_model(); self._registered_ci = [] 
+    self.writer = SummaryWriter(self.path + '/train') if self.path and not self.silent else None
     dev = ["CPU", *(['MPS'] if th.backends.mps.is_available() else []), *(['CUDA'] if th.cuda.is_available() else [])]
     dev[dev.index(str(self.device).upper())] = '*' + dev[dev.index(str(self.device).upper())]
     mem = round(psutil.virtual_memory().total / (1024.0 **3))
-    if not self.silent and not self.explore: print("+----------------------------------------------------+\n"\
+    if not self.silent: print("+----------------------------------------------------+\n"\
       f"| System: {platform.platform()}                 |\n" \
       f"| Devices: [ {' | '.join(dev)} ] | {os.cpu_count()} Cores | {mem} GB        |\n"\
       f"| Python: {platform.python_version()} | PyTorch: {th.__version__} | Numpy: {np.__version__}    |\n" \
@@ -108,6 +106,7 @@ class TrainableAlgorithm(BaseAlgorithm):
 
   @classmethod
   def load(cls, load, phase='train', device: Union[th.device, str] = "auto", **kwargs) -> "TrainableAlgorithm":
+    assert os.path.exists(f"{load}"), f"Attempting to load a model from {load} that does not exist"
     assert os.path.exists(f"{load}/model/{phase}.zip"), f"Attempting to load a model from {load} that does not exist"
     data, params, pytorch_variables = load_from_zip_file(f"{load}/model/{phase}", device=device)
     assert data is not None and params is not None, "No data or params found in the saved file"
@@ -118,7 +117,7 @@ class TrainableAlgorithm(BaseAlgorithm):
         for name in pytorch_variables if pytorch_variables[name] is not None]
     if model.use_sde: model.policy.reset_noise() 
     model.num_timesteps -= model.num_timesteps%(model.n_steps * model.n_envs)
-    model.envs = factory(model.envs, seed=model.seed, explore=model.explore); 
+    model.envs = factory(model.envs, seed=model.seed); 
     model.env = model.envs['train']
     if model.normalize: model.env = VecNormalize(model.env)
     return model
