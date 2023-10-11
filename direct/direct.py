@@ -19,7 +19,7 @@ class DIRECT(TrainableAlgorithm):
 
   def __init__(self, chi:float=None, kappa:int=None, omega:float=None, disc_kwargs:Dict[str,Any]={}, _init_setup_model=True,  **kwargs):
     self.buffer = None; self.discriminator, self.disc_kwargs = None, disc_kwargs  
-    super().__init__(_init_setup_model=False, **kwargs); sparse = self.env.get_attr('sparse')[0]    
+    super().__init__(_init_setup_model=False, **kwargs); sparse = self.env.envs[0].unwrapped.sparse
     self.chi = chi if chi is not None else 1.0 if sparse else 0.5; assert self.chi <= 1.0
     self.kappa = kappa if kappa is not None else 2048; assert self.kappa > 0
     self.omega = omega if omega is not None else 0.5 if sparse else 2.0; assert 0 < self.omega < 10

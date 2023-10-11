@@ -21,7 +21,7 @@ Example Values: discriminator(sample)
 
 import numpy as np; import torch as th
 from typing import Dict, Any, List
-from gym.spaces.utils import flatdim as _dim
+from gymnasium.spaces.utils import flatdim as _dim
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.base_class import BaseAlgorithm
 
