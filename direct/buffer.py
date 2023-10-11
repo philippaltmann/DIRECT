@@ -12,18 +12,17 @@ class Score():
 class DirectBufferSamples(NamedTuple): observations: th.Tensor; actions: th.Tensor; rewards: th.Tensor
 
 class DirectBuffer(BaseBuffer):
-  def __init__(self, buffer_size: int, parent: BaseAlgorithm): 
-    """ Direct Buffer for Self-Imitation, memory prioritized by biased return
+  def __init__(self, buffer_size: int, parent: BaseAlgorithm, process=lambda ep: (*ep.get('history').values(),ep['r'],ep['l'])): 
+    """ Direct Buffer for Self-Imitation, memory prioritized by biased return 
+    :param process (optional): function to process (state,action,reward,score) given an episode 
     :param size: (int)  Max number of transitions to store. On overflow, old memory is dropped. """
-    self.parent, self.env = parent, parent.env
+    self.parent, self.env, self.process = parent, parent.env, process 
     n_envs, observation_space, action_space = self.env.num_envs, self.env.observation_space, self.env.action_space 
     super(DirectBuffer, self).__init__(buffer_size, observation_space, action_space, parent.device, n_envs=n_envs)
     self.obs_size, self.scr_size = (self.buffer_size, ) + self.obs_shape, (self.buffer_size)
     self.act_size, self.rew_size = (self.buffer_size, self.action_dim), (self.buffer_size, 1)
-    self.observations = np.zeros(self.obs_size, dtype=observation_space.dtype)
-    self.actions = np.zeros(self.act_size, dtype=action_space.dtype)
-    self.rewards = np.zeros((self.rew_size), dtype=np.float32)
-    self.scores = np.full((self.scr_size), Score())
+    self.observations, self.actions = np.array([]), np.array([]) 
+    self.rewards, self.scores = np.array([]), np.full((self.scr_size), Score())
     self.overwrites = 0
     
   def fill(self, obs:np.ndarray, act:np.ndarray, rew:np.ndarray, scr=None):
@@ -68,21 +67,23 @@ class DirectBuffer(BaseBuffer):
   def extend(self, episode) -> list: 
     """ Extends the buffer by sar samples from one episode sorted by their cumulated return
     Returns: list of indices where samples were inserted """
-    obs, act, rew = self.shape(*episode.get('history').values(), episode['l'])
-    return [self.add(*data) for data in zip(*(obs,act,rew, np.full(episode['l'], Score(episode['r']))))] 
+    # obs, act, rew = self.shape(*self.process(episode))
+    tau = self.shape(*self.process(episode))
+    return [self.add(*data) for data in zip(*tau)] 
 
   def _get_samples(self, idx: np.ndarray, env: Optional[VecNormalize] = None) -> DirectBufferSamples:
     return self.prepare(self, self.observations[idx], self.actions[idx], self.rewards[idx], idx.shape[0])
 
-  def shape(self, obs, act, rew, len):
+  def shape(self, obs, act, rew, scr, len):
     _s = lambda shape: (len,) + (shape[1:] if isinstance(shape, tuple) else ())
-    return np.reshape(obs, _s(self.obs_size)), np.reshape(act, _s(self.act_size)), np.reshape(rew, _s(self.rew_size))
+    return np.reshape(obs, _s(self.obs_size)), np.reshape(act, _s(self.act_size)), np.reshape(rew, _s(self.rew_size)), np.full(len, Score(scr))
 
   @classmethod
   def prepare(cls, buffer, observations:np.ndarray, actions:np.ndarray, rewards:np.ndarray, len=1) -> DirectBufferSamples:
     """ Prepares a batch of observatiosn, actions and rewards of size len for being processed by the discriminator by
       reshaping, applying normalization when needed, converting to tensors and packing in DirectBufferSample"""
-    observations, actions, rewards = buffer.shape(observations, actions, rewards, len)
+    # print("Prepare") #TODO check if score needed?
+    observations, actions, rewards, scores = buffer.shape(observations, actions, rewards, 0, len)
     return DirectBufferSamples(
       process(th.as_tensor(buffer._maybe_norm(obs=observations), device=buffer.device), buffer.env.observation_space), 
       process(th.as_tensor(actions, device=buffer.device), buffer.env.action_space), 
