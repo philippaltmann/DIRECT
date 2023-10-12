@@ -1,4 +1,5 @@
-import numpy as np; import torch as th; from typing import Any, Dict
+import numpy as np; import time;
+from stable_baselines3.common import base_class; import torch as th; from typing import Any, Dict
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -18,9 +19,16 @@ class EvaluationCallback(BaseCallback):
     if stop_on_reward is not None: print(f"Stopping at {stop_on_reward}"); assert run_test, f"Can't stop on reward {stop_on_reward} without running test episodes"
     if record_video: assert run_test, f"Can't record video without running test episodes"
 
-  def _on_training_start(self):  self.evaluate()
+  def _on_training_start(self): self.evaluate()
+
+  # def init_callback(self, model: BaseAlgorithm) -> None: 
+  #   # TODO: speedup self._setup_learn if this gets large  
+  #   print(f"Done Setup Learning in {(time.time_ns() - self.model.start_time)/1e+9}\n")
+
+  # def _on_rollout_start(self) -> None: self.start = time.time()
 
   def _on_rollout_end(self) -> None:
+    # print(f"Collected rollout in {time.time()-self.start}")
     if self.writer == None: return 
     # Uncomment for early stopping based on 100-mean training return
     _sor = (self.ep_mean('reward_threshold') if self.stop_on_reward == 'VARY' else self.stop_on_reward)
@@ -29,6 +37,7 @@ class EvaluationCallback(BaseCallback):
 
   def _on_step(self) -> bool: 
     """ Write timesteps to info & stop on reward threshold"""
+    # print(f"Step took {time.time()-self.start}"); self.start = time.time()
     [info['episode'].update({'t': self.model.num_timesteps}) for info in self.locals['infos'] if info.get('episode')]
     return self.model.continue_training
 
@@ -63,6 +72,7 @@ class EvaluationCallback(BaseCallback):
     """Run evaluation & write hyperparameters, results & video to tensorboard. Args:
         write_hp: Bool flag to use basic method for writing hyperparams for current evaluation, defaults to False
     Returns: metrics: A dict of evaluation metrics, can be used to write custom hparams """ 
+    # import time; start = time.time()
     step = self.model.num_timesteps
     if not self.writer: return []
     metrics = {k:v for label, env in self.eval_envs.items() for k, v in self.run_eval(env, label, step).items()}
@@ -81,6 +91,7 @@ class EvaluationCallback(BaseCallback):
     
     #Write metrcis summary to tensorboard 
     [self.writer.add_scalar(tag, value, step) for tag,item in summary.items() for step,value in item.items()]
+    # print(f"Done Evaluating in {time.time()-start}")
     self.writer.flush(); return metrics
 
   def run_eval(self, env, label: str, step: int):
