@@ -1,5 +1,4 @@
-import numpy as np; import time;
-from stable_baselines3.common import base_class; import torch as th; from typing import Any, Dict
+import numpy as np; import time; import torch as th
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -15,25 +14,23 @@ class EvaluationCallback(BaseCallback):
   def __init__(self, model: BaseAlgorithm, eval_envs: dict, stop_on_reward:float=None, record_video:bool=True, write_heatmaps:bool=True, run_test:bool=True):
     super(EvaluationCallback, self).__init__(); self.model = model; self.writer: SummaryWriter = self.model.writer
     self.eval_envs = eval_envs; self.record_video = record_video; self.write_heatmaps = write_heatmaps; self.run_test = run_test
-    self.ep_mean = lambda key: np.mean([ep_info[key] for ep_info in self.model.ep_info_buffer]); self.stop_on_reward = stop_on_reward
+    save_mean = lambda a: np.mean(a) if len(a) else np.nan; self.s = 0
+    self.ep_mean = lambda key: save_mean([ep_info[key] for ep_info in self.model.ep_info_buffer]); self.stop_on_reward = stop_on_reward
     if stop_on_reward is not None: print(f"Stopping at {stop_on_reward}"); assert run_test, f"Can't stop on reward {stop_on_reward} without running test episodes"
     if record_video: assert run_test, f"Can't record video without running test episodes"
 
-  def _on_training_start(self): self.evaluate()
+  # def init_callback(self, model: BaseAlgorithm) -> None:  print(f"Done Setup Learning in {(time.time_ns() - self.model.start_time)/1e+9}")
+  # def _on_rollout_end(self) -> None: print(f"Collected rollout in {time.time()-self.start}") # add self.start = time.time() to _start
 
-  # def init_callback(self, model: BaseAlgorithm) -> None: 
-  #   # TODO: speedup self._setup_learn if this gets large  
-  #   print(f"Done Setup Learning in {(time.time_ns() - self.model.start_time)/1e+9}\n")
-
-  # def _on_rollout_start(self) -> None: self.start = time.time()
-
-  def _on_rollout_end(self) -> None:
-    # print(f"Collected rollout in {time.time()-self.start}")
+  def _on_rollout_start(self) -> None: # self.start = time.time()
     if self.writer == None: return 
     # Uncomment for early stopping based on 100-mean training return
     _sor = (self.ep_mean('reward_threshold') if self.stop_on_reward == 'VARY' else self.stop_on_reward)
-    if _sor is not None and self.ep_mean('r') >= _sor or not self.model.continue_training: self.model.continue_training = False
+    r = self.ep_mean('r'); self.model.progress_bar.postfix[0] = r; 
+    self.model.progress_bar.update(self.model.num_timesteps-self.s); self.s = self.model.num_timesteps
+    if _sor is not None and r >= _sor or not self.model.continue_training: self.model.continue_training = False
     if self.model.should_eval(): self.evaluate()
+
 
   def _on_step(self) -> bool: 
     """ Write timesteps to info & stop on reward threshold"""
@@ -42,11 +39,12 @@ class EvaluationCallback(BaseCallback):
     return self.model.continue_training
 
   def _on_training_end(self) -> None: # No Early Stopping->Unkown, not reached (continue=True)->Failure, reached (stopped)->Success
+    self.model.progress_bar.update(self.model.num_timesteps-self.s); self.s = self.model.num_timesteps
     if self.writer == None: return 
     status = 'STATUS_UNKNOWN' if not self.stop_on_reward else 'STATUS_FAILURE' if self.model.continue_training else 'STATUS_SUCCESS'
     metrics = self.evaluate(); write_hyperparameters(self.model, list(metrics.keys()), status)
 
-  def prepare_ci(self, infos: dict, category=None, confidence:float=.95, write_raw=False) -> Dict: 
+  def prepare_ci(self, infos: dict, category=None, confidence:float=.95, write_raw=False) -> dict: 
     """ Computes the confidence interval := x(+/-)t*(s/√n) for a given survey of a data set. ref:
     https://github.com/WangYueFt/rfs/blob/f8c837ba93c62dd0ac68a2f4019c619aa86b8421/eval/meta_eval.py#L19
     :param infos: data dict in form {tag: {step: data, ...}}
@@ -72,7 +70,7 @@ class EvaluationCallback(BaseCallback):
     """Run evaluation & write hyperparameters, results & video to tensorboard. Args:
         write_hp: Bool flag to use basic method for writing hyperparams for current evaluation, defaults to False
     Returns: metrics: A dict of evaluation metrics, can be used to write custom hparams """ 
-    # import time; start = time.time()
+    import time; start = time.time()
     step = self.model.num_timesteps
     if not self.writer: return []
     metrics = {k:v for label, env in self.eval_envs.items() for k, v in self.run_eval(env, label, step).items()}
@@ -91,7 +89,12 @@ class EvaluationCallback(BaseCallback):
     
     #Write metrcis summary to tensorboard 
     [self.writer.add_scalar(tag, value, step) for tag,item in summary.items() for step,value in item.items()]
-    # print(f"Done Evaluating in {time.time()-start}")
+    self.model.eval()
+    # print(f"Done Evaluating in {time.time()-start}") # Early stopping based on evaluation return
+    # _sor = (self.ep_mean('reward_threshold') if self.stop_on_reward == 'VARY' else self.stop_on_reward)
+    # r = metrics['validation_return']; self.model.progress_bar.postfix[0] = r; 
+    # self.model.progress_bar.update(self.model.num_timesteps-self.s); self.s = self.model.num_timesteps
+    # if _sor is not None and r >= _sor or not self.model.continue_training: self.model.continue_training = False
     self.writer.flush(); return metrics
 
   def run_eval(self, env, label: str, step: int):
@@ -132,8 +135,6 @@ class EvaluationCallback(BaseCallback):
         video = th.tensor(frame_buffer).unsqueeze(0).swapaxes(3,4).swapaxes(2,3)
         self.writer.add_video(label, video, global_step=step, fps=env.envs[0].metadata['render_fps'])
 
-      # Early stopping based on evaluation return
-      # if self.stop_on_reward(r) and label == 'validation': self.model.continue_training = False
     # Create & write tringle heatmap plots
     self.writer.flush()
     return metrics
