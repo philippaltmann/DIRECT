@@ -7,12 +7,13 @@ from stable_baselines3.common.vec_env import VecNormalize
 from stable_baselines3.common.save_util import load_from_zip_file, recursive_setattr
 from torch.utils.tensorboard.writer import SummaryWriter; import stable_baselines3 as sb3; 
 from typing import Optional, Type, Union; from tqdm import tqdm; 
-import os; import psutil; import platform
+import os; import psutil; import platform; import time
 import gymnasium as gym; from environment import factory
 from .evaluation import EvaluationCallback
 
 
 class TrainableAlgorithm(BaseAlgorithm):
+  _suffix = None
   def __init__(self, envs:list[str]=None, normalize:bool=False, policy:Union[str,Type[ActorCriticPolicy]]="MlpPolicy", path:Optional[str]=None, seed=None, silent=False, stop_on_reward=False, **kwargs):
     """ :param env: The environment to learn from (if registered in Gym, can be str)
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...) defaults to MlpPolicy
@@ -20,14 +21,14 @@ class TrainableAlgorithm(BaseAlgorithm):
     :param stop_on_reward: bool for ealry stopping, defaults to False. 
     :param log_name: optional custom folder name for logging
     :param path: (str) the log location for tensorboard (if None, no logging) """
-    _path = lambda seed: f"{path}/{envs[0]}/{str(self.__class__.__name__)}/{seed}"
+    _path = lambda seed: f"{path}/{envs[0]}/{str(self.__class__.__name__)}{self._suffix if self._suffix is not None else ''}/{seed}"
     gen_seed = lambda s=random.randint(0, 999): s if not os.path.isdir(_path(s)) else gen_seed()
     if seed is None: seed = gen_seed()
     self.path = _path(seed) if path is not None else None; self.eval_frequency, self.progress_bar = None, None
-    if envs is not None: self.envs = factory(envs, seed=seed); self.stop_on_reward = stop_on_reward
+    if envs is not None: self.envs = factory(envs, seed=seed); self.stop_on_reward = stop_on_reward 
     self.normalize, self.silent, self.continue_training = normalize, silent, True; 
     super().__init__(policy=policy, seed=seed, verbose=0, env=self.envs['train'], **kwargs)
-    
+
   def _setup_model(self) -> None:
     if self.normalize: self.env = VecNormalize(self.env)
     self._naming = {'l': 'length-100', 'r': 'return-100'}; self._custom_scalars = {} #, 's': 'safety-100'
@@ -56,7 +57,9 @@ class TrainableAlgorithm(BaseAlgorithm):
     :return: List of parameters that should be excluded from being saved with pickle. """
     return super(TrainableAlgorithm, self)._excluded_save_params() + ['get_actions', 'heatmap_iterations', '_naming', '_custom_scalars', '_registered_ci', 'envs', 'writer', 'progress_bar', 'silent']
 
-  def should_eval(self) -> bool: return self.eval_frequency is not None and self.num_timesteps % self.eval_frequency == 0  
+  def should_eval(self) -> bool: 
+    # print(f"{self.num_timesteps} % {self.eval_frequency} = {self.num_timesteps % self.eval_frequency} == 0" )
+    return self.eval_frequency is not None and self.num_timesteps % self.eval_frequency == 0  
 
   def learn(self, total_timesteps: int, eval_frequency=8192, eval_kwargs={}, **kwargs) -> "TrainableAlgorithm":
     """ Learn a policy
@@ -72,16 +75,13 @@ class TrainableAlgorithm(BaseAlgorithm):
     if eval_frequency is not None: self.eval_frequency = eval_frequency * self.n_envs
     hps = self.get_hparams(); hps.pop('seed'); hps.pop('num_timesteps');  
     self.progress_bar = tqdm(total=total, unit="steps", postfix=[0,""], bar_format="{desc}[R: {postfix[0]:4.2f}][{bar}]({percentage:3.0f}%)[{n_fmt}/{total_fmt}@{rate_fmt}]") 
-    self.progress_bar.update(self.num_timesteps); 
     model = super(TrainableAlgorithm, self).learn(total_timesteps=total_timesteps, callback=callback, **kwargs)
-    self.progress_bar.close()
-    return model
+    self.progress_bar.close(); return model
 
-  def train(self, **kwargs) -> None:
-    if not self.continue_training: return
-    self.progress_bar.postfix[0] = np.mean([ep_info["r"] for ep_info in self.ep_info_buffer])
-    if self.should_eval(): self.progress_bar.update(self.eval_frequency); #n_steps
-    super(TrainableAlgorithm, self).train(**kwargs) # Train PPO & Write Training Stats 
+  # def train(self, **kwargs): s = time.time(); super(TrainableAlgorithm, self).train(**kwargs); print(f"Trained Alg in {time.time()-s}")
+  def eval(self):
+    """Helper function called upon evaluation"""
+    pass
   
   def get_hparams(self):
     """ Fetches, filters & flattens own hyperparameters
@@ -117,7 +117,7 @@ class TrainableAlgorithm(BaseAlgorithm):
         for name in pytorch_variables if pytorch_variables[name] is not None]
     if model.use_sde: model.policy.reset_noise() 
     model.num_timesteps -= model.num_timesteps%(model.n_steps * model.n_envs)
-    model.envs = factory(model.envs, seed=model.seed); 
-    model.env = model.envs['train']
-    if model.normalize: model.env = VecNormalize(model.env)
+    # model.envs = factory(model.envs, seed=model.seed); 
+    # model.env = model.envs['train']
+    # if model.normalize: model.env = VecNormalize(model.env)
     return model
