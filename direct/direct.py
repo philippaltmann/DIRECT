@@ -1,3 +1,4 @@
+import os; import numpy as np
 from stable_baselines3.common.callbacks import CallbackList
 from typing import Any, Dict, List, Tuple
 
@@ -18,12 +19,21 @@ class DIRECT(TrainableAlgorithm):
   :param **kwargs: further parameters will be passed to TrainableAlgorithm, then PPO"""
 
   def __init__(self, chi:float=None, kappa:int=None, omega:float=None, disc_kwargs:Dict[str,Any]={}, _init_setup_model=True,  **kwargs):
+    _sf = []
+    if chi is None: self.chi = 0.5
+    else: self.chi = chi; _sf.append(f"χ:{chi}")
+    if omega is None: self.omega = 1
+    else: self.omega = omega; _sf.append(f"ω:{omega}")
+    if kappa is None: self.kappa = 2048
+    else: self.kappa = kappa; _sf.append(f"κ:{kappa}")
+    if len(_sf): self._suffix = f" [{' | '.join(_sf)}]" # if args['algorithm'] == "DIRECT" else 'baseline'
+    assert self.chi <= 1.0 and self.kappa > 0 and 0 < self.omega < 10
     self.buffer = None; self.discriminator, self.disc_kwargs = None, disc_kwargs  
-    super().__init__(_init_setup_model=False, **kwargs); sparse = self.env.envs[0].unwrapped.sparse
-    self.chi = chi if chi is not None else 1.0 if sparse else 0.5; assert self.chi <= 1.0
-    self.kappa = kappa if kappa is not None else 2048; assert self.kappa > 0
-    self.omega = omega if omega is not None else 0.5 if sparse else 2.0; assert 0 < self.omega < 10
-    self._suffix = f"{self.chi}_{self.omega}_{self.kappa}" # if args['algorithm'] == "DIRECT" else 'baseline'
+    super().__init__(_init_setup_model=False, **kwargs);# sparse = self.env.envs[0].unwrapped.sparse
+    # self.chi = chi if chi is not None else 1.0 if sparse else 0.5; assert self.chi <= 1.0
+    # self.kappa = kappa if kappa is not None else 2048; assert self.kappa > 0
+    # self.omega = omega if omega is not None else 0.5 if sparse else 2.0; assert 0 < self.omega < 10
+    # self._suffix = f"{self.chi}_{self.omega}_{self.kappa}" # if args['algorithm'] == "DIRECT" else 'baseline'
     if _init_setup_model: self._setup_model()
 
 
@@ -35,6 +45,7 @@ class DIRECT(TrainableAlgorithm):
     self.disc_kwargs.setdefault('batch_size', self.batch_size) 
     self.buffer = DirectBuffer(buffer_size=self.kappa, parent=self)
     self.discriminator = Discriminator(chi=self.chi, parent=self, **self.disc_kwargs).to(self.device)
+    os.makedirs(f'{self.path}/buffer/', exist_ok=True)
 
   def _excluded_save_params(self) -> List[str]:  return super(DIRECT, self)._excluded_save_params() + ['buffer'] 
 
@@ -59,3 +70,6 @@ class DIRECT(TrainableAlgorithm):
     # Train PPO
     super(DIRECT, self).train()
     
+  def eval(self):
+    """Save buffer upon evaluation"""
+    np.save(f'{self.path}/buffer/{self.num_timesteps}', self.buffer.observations)
