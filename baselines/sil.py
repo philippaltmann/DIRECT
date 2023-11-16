@@ -1,10 +1,12 @@
 import numpy as np; import torch as th
 from stable_baselines3.a2c import A2C as StableA2C
+from stable_baselines3.ppo import PPO as StablePPO
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from .sil_buffer import PrioritizedReplayBuffer
 from algorithm import TrainableAlgorithm
 
 class SIL(TrainableAlgorithm, StableA2C):
+# class SIL(TrainableAlgorithm, StablePPO):
   """A Trainable extension to A2C using Self-Imitation Leanrning (https://arxiv.org/pdf/1806.05635.pdf)
   https://github.com/junhyukoh/self-imitation-learning/blob/master/baselines/common/self_imitation.py
   Implementation inspired by code from https://github.com/TianhongDai/self-imitation-learning-pytorch"""
@@ -35,7 +37,8 @@ class SIL(TrainableAlgorithm, StableA2C):
       obs, act, ret, wgt, idx = self.buffer.sample_batch(self.sil_batch_size)
       if obs is  None: break
       obs = th.tensor(obs, dtype=th.float32, device=self.device)
-      actions = th.tensor(act, dtype=th.float32, device=self.device).unsqueeze(1)
+      actions = th.tensor(act, dtype=th.float32, device=self.device)
+      if len(actions.shape) == 1: actions = actions.unsqueeze(1)
       returns = th.tensor(ret, dtype=th.float32, device=self.device).unsqueeze(1)
       weights = th.tensor(wgt, dtype=th.float32, device=self.device).unsqueeze(1)
       max_nlogp = th.full((len(idx), 1),self.max_nlogp, dtype=th.float32, device=self.device)
