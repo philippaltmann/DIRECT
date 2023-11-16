@@ -1,3 +1,4 @@
+import torch as th; import numpy as np
 from algorithm import TrainableAlgorithm
 from stable_baselines3.dqn import DQN as StableDQN
 
@@ -9,7 +10,10 @@ class DQN(TrainableAlgorithm, StableDQN):
 
   def _setup_model(self) -> None:
     super(DQN, self)._setup_model()
-    self.get_actions = lambda s: self.policy.q_net.forward(s).cpu().detach().numpy()
+    def ga(s): a = self.policy.q_net.forward(th.tensor([s])); return a/a.sum()
+    # self.get_actions = lambda s: self.policy.q_net.forward(th.tensor([s]))#.cpu().detach().numpy()
+    self.get_actions = lambda s: ga(s)
+
 
   def train(self, **kwargs) -> None:
     self.logger.record("rewards/environment", self.replay_buffer.rewards.copy()) 
