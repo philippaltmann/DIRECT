@@ -22,7 +22,8 @@ class DirectCallback(BaseCallback):
     # Calculate Discriminative Rewards for updating the policy, add to return 
     data = DirectBuffer.prepare(self.model.buffer, observations, actions, real_rewards, len=self.model.n_envs)
     disc_rewards = self.model.discriminator.reward(data).flatten(); self.disc_return += disc_rewards
-    rewards = (self.model.chi * disc_rewards) + ((1-self.model.chi) * real_rewards)
+    rewards = self.model.mixture(real_rewards, disc_rewards, self.model.chi)
+
 
     for i, (info, reward) in enumerate(zip(l('infos'), rewards)):
       self.locals['rewards'][i] = reward # Update rewards with direct reward (previous: self.action_probs as Bias)
