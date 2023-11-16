@@ -17,18 +17,19 @@ class DIRECT(TrainableAlgorithm):
   :param disc_kwargs: (dict) parameters to be passed the discriminator on creation
       see Discriminator class for full description
   :param **kwargs: further parameters will be passed to TrainableAlgorithm, then PPO"""
-
-  def __init__(self, envs:list[str]=None, chi:float=None, kappa:int=None, omega:float=None, disc_kwargs:Dict[str,Any]={}, _init_setup_model=True, **kwargs):
+    
+  def __init__(self, envs:list[str]=None, chi:float=None, kappa:int=None, omega:float=None, disc_kwargs:Dict[str,Any]={}, _init_setup_model=True, mixture=lambda r,d,c: c*d + (1-c)*r,  **kwargs):
     _sf = []
     if chi is None: self.chi = 0.5
     else: self.chi = chi; _sf.append(f"χ:{chi}")
     if omega is None: self.omega = 1
     else: self.omega = omega; _sf.append(f"ω:{omega}")
-    if kappa is None: self.kappa = 8192 if 'Point' in envs[0] else 32
+    if kappa is None: self.kappa = 8192 if 'Point' in envs[0] else 64 if 'Fetch' in envs[0] else 32 
     else: self.kappa = kappa; _sf.append(f"κ:{kappa}")
     if len(_sf): self._suffix = f" [{' | '.join(_sf)}]"
     assert self.chi <= 1.0 and self.kappa > 0 and 0 < self.omega <= 10
     self.buffer = None; self.discriminator, self.disc_kwargs = None, disc_kwargs  
+    self.mixture = mixture
     super().__init__(envs=envs, _init_setup_model=False, **kwargs)
     if _init_setup_model: self._setup_model()
 
@@ -54,7 +55,7 @@ class DIRECT(TrainableAlgorithm):
     kwargs['callback'] = CallbackList([DirectCallback(), kwargs.pop('callback')]) if 'callback' in kwargs else DirectCallback()
     return super(DIRECT, self).learn(reset_num_timesteps=reset_num_timesteps, **kwargs)
 
-  def train(self) -> None:
+  def train(self, **kwargs) -> None:
     # Train Discriminator
     self.discriminator.train(buffer=self.buffer, rollout=self.rollout_buffer)
 
@@ -64,7 +65,7 @@ class DIRECT(TrainableAlgorithm):
     self.logger.record("rewards/environment", self.rollout_buffer.real_rewards.copy()) 
 
     # Train PPO
-    super(DIRECT, self).train()
+    super(DIRECT, self).train(**kwargs)
     
   def eval(self):
     """Save buffer upon evaluation"""
