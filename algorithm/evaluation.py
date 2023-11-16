@@ -99,15 +99,15 @@ class EvaluationCallback(BaseCallback):
 
   def run_eval(self, env, label: str, step: int):
     metrics = {}
-    if self.run_test: 
+    if self.run_test:
       deterministic = False  # not env.get_attr('spec')[0].nondeterministic
       n_eval_episodes = 1    #if not deterministic else 100
       n_envs = env.num_envs; episode_rewards = []; episode_counts = np.zeros(n_envs, dtype="int")
       episode_count_targets = np.array([(n_eval_episodes + i) // n_envs for i in range(n_envs)], dtype="int")
-      heatmap = np.zeros(env.envs[0].unwrapped.size)
+      if self.write_heatmaps: heatmap = np.zeros(env.envs[0].unwrapped.size)
       observations = env.reset(); states = None; episode_starts = np.ones((env.num_envs,), dtype=bool)
       while (episode_counts < episode_count_targets).any():
-        heatmap[tuple(env.envs[0].unwrapped.getpos())] += 1
+        if self.write_heatmaps: heatmap[tuple(env.envs[0].unwrapped.getpos())] += 1
         actions, states = self.model.predict(observations, state=states, episode_start=episode_starts, deterministic=deterministic)
         new_observations, _, dones, infos = env.step(actions)
         for i in range(n_envs):
@@ -121,7 +121,7 @@ class EvaluationCallback(BaseCallback):
         plt.imshow(heatmap); plt.axis('off'); plt.colorbar(plt.pcolor(heatmap))
         self.writer.add_figure(f'exploration/{label}', fig, step)
         
-        if hasattr(self.model, 'buffer') and len(self.model.buffer.observations):
+        if hasattr(self.model, 'buffer') and hasattr(self.model.buffer, 'observations') and len(self.model.buffer.observations):
           heatmap = np.zeros(env.envs[0].unwrapped.size)
           for sample in self.model.buffer.observations:
             heatmap[tuple(env.envs[0].unwrapped.getpos(board=sample.reshape(env.envs[0].unwrapped.size)))] += 1
