@@ -14,18 +14,22 @@ from .evaluation import EvaluationCallback
 
 class TrainableAlgorithm(BaseAlgorithm):
   _suffix = None
-  def __init__(self, envs:list[str]=None, normalize:bool=False, policy:Union[str,Type[ActorCriticPolicy]]="MlpPolicy", path:Optional[str]=None, seed=None, silent=False, stop_on_reward=False, **kwargs):
-    """ :param env: The environment to learn from (if registered in Gym, can be str)
-    :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...) defaults to MlpPolicy
+  def __init__(self, envs:list[str]=None, normalize:bool=False, n_envs:int=4, policy:Union[str,Type[ActorCriticPolicy]]="MlpPolicy", 
+               path:Optional[str]=None, seed=None, silent=False, stop_on_reward=False, **kwargs):
+    """ BaseClass for unufied training and evaluation 
+    :param env: The environment to learn from (if registered in Gym, can be str)
+    :param n_envs: The number of training environments (default: 4)
     :param normalize: whether to use normalized observations, default: False
+    :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...) defaults to MlpPolicy
     :param stop_on_reward: bool for ealry stopping, defaults to False. 
     :param log_name: optional custom folder name for logging
     :param path: (str) the log location for tensorboard (if None, no logging) """
+
     _path = lambda seed: f"{path}/{envs[0]}/{str(self.__class__.__name__)}{self._suffix if self._suffix is not None else ''}/{seed}"
     gen_seed = lambda s=random.randint(0, 999): s if not os.path.isdir(_path(s)) else gen_seed()
     if seed is None: seed = gen_seed()
     self.path = _path(seed) if path is not None else None; self.eval_frequency, self.progress_bar = None, None
-    if envs is not None: self.envs = factory(envs, seed=seed); self.stop_on_reward = stop_on_reward 
+    if envs is not None: self.envs = factory(envs, n_train=n_envs, seed=seed); self.stop_on_reward = stop_on_reward 
     self.normalize, self.silent, self.continue_training = normalize, silent, True; 
     super().__init__(policy=policy, seed=seed, verbose=0, env=self.envs['train'], **kwargs)
 
