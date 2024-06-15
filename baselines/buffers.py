@@ -6,7 +6,7 @@ try: import psutil
 except ImportError: psutil = None
 
 from stable_baselines3.common.type_aliases import ReplayBufferSamples
-from stable_baselines3.common.vec_env import VecNormalize
+from stable_baselines3.common.vec_env import VecNormalize, VecEnv
 from stable_baselines3.common.buffers import BaseBuffer
 
 
@@ -23,18 +23,12 @@ class EntReplayBuffer(BaseBuffer):
       See https://github.com/DLR-RM/stable-baselines3/issues/37#issuecomment-637501195
       and https://github.com/DLR-RM/stable-baselines3/pull/28#issuecomment-637559274"""
 
-  def __init__(
-      self,
-      buffer_size: int,
-      observation_space: spaces.Space,
-      action_space: spaces.Space,
+  def __init__( self, buffer_size: int, env: VecEnv,
       device: Union[th.device, str] = "auto",
-      n_envs: int = 1,
       optimize_memory_usage: bool = False,
-
-      # Running Mean Std
-      epsilon=1e-4, shape=[1]
+      epsilon=1e-4, shape=[1] # Running Mean Std
   ):
+    observation_space, action_space, n_envs = env.envs[0].observation_space, env.envs[0].action_space, env.num_envs
     super(EntReplayBuffer, self).__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
 
     # Check that the replay buffer can fit into the memory
