@@ -7,7 +7,7 @@ except ImportError: psutil = None
 
 from stable_baselines3.common.type_aliases import ReplayBufferSamples
 from stable_baselines3.common.vec_env import VecNormalize, VecEnv
-from stable_baselines3.common.buffers import BaseBuffer, ReplayBuffer as SBReplay
+from stable_baselines3.common.buffers import BaseBuffer
 
 
 class EntReplayBuffer(BaseBuffer):
@@ -453,18 +453,3 @@ class ReplayBuffer(object):
         return obses, full_obs, actions, rewards, next_obses, not_dones, not_dones_no_max
     
     
-
-class ReplayPool(SBReplay):
-  """ReplayPool for Variational Information Maximizing Exploration
-    Adapted from https://github.com/mazpie/vime-pytorch"""
-
-  def normalize(self, obs, actions, next_obs, epsilon):
-    stats = lambda a: (np.mean(a.reshape(-1, a.shape[-1]), axis=0), np.std(a.reshape(-1, a.shape[-1]), axis=0))
-    def norm(target,source): mean,std = stats(source); return (target - mean) / (std + epsilon)
-    return norm(obs,self.observations), norm(actions, self.actions), norm(next_obs, self.observations)
-
-  def sample(self, batch_size: int, epsilon=1e-8) -> ReplayBufferSamples:
-    """Sample batch of input [obs,act] -> target [next_obs]"""
-    obs, actions, next_obs, _, _ = super().sample(batch_size)
-    if epsilon is not None: obs, actions, next_obs = self.normalize(obs, actions, next_obs, epsilon)
-    return th.hstack([obs, actions]).float(), next_obs.float()
