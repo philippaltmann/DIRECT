@@ -28,7 +28,7 @@ model.save()
 ```sh
 # Train DIRECT and baselines 
 python -m run DIRECT -e Maze9Sparse -t 24 --path 'results/1-eval'
-python -m run [DIRECT|GASIL|SIL|A2C|PPO] -e FetchReach -t 96 --path 'results/2-bench'
+python -m run [DIRECT|GASIL|SIL|A2C|PPO|VIME|PrefPPO] -e FetchReach -t 96 --path 'results/2-bench'
 
 # Display help for command line arguments 
 python -m run -h
