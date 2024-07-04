@@ -45,7 +45,7 @@ class RewardModel:
     teacher_eps_mistake: probability of making a mistake (default: 0)
     teacher_eps_skip: hyperparameters to control skip threshold (\in [0,1])
     teacher_eps_equal: hyperparameters to control equal threshold (\in [0,1])"""
-    self.label_margin = label_margin; self.label_target = 1 - 2*self.label_margin
+    self.label_margin = label_margin; self.label_target = 1 - 2 * self.label_margin
     self.teacher = teacher; [ setattr(self, f'teacher_{k}', v) for k,v in {
         'oracle':  {'beta': -1, 'gamma': 1,   'eps_mistake': 0,   'eps_equal': 0,   'eps_skip': 0   },
         'mistake': {'beta': -1, 'gamma': 1,   'eps_mistake': 0.1, 'eps_equal': 0,   'eps_skip': 0   },
@@ -76,18 +76,19 @@ class RewardModel:
 
 
   def add_data(self, ep):
-      S = ep['states']
-      A = ep['actions'][:, np.newaxis]
-      R = ep['rewards'][:, np.newaxis]
-      self.inputs.append(np.concatenate([S, A], axis=-1))
-      self.targets.append(R)
+    S, A = ep['history']['states'], ep['history']['actions']
+    if len(S.shape) != len(A.shape): A = A[:, np.newaxis]
+    R = np.full((ep['history']['rewards'].shape[0], 1), ep['r'])
+    # R = ep['rewards'][:, np.newaxis]
+    self.inputs.append(np.concatenate([S, A], axis=-1))
+    self.targets.append(R)
 
 
   def add_data_batch(self, obses, rewards):
-      num_env = obses.shape[0]
-      for index in range(num_env):
-          self.inputs.append(obses[index])
-          self.targets.append(rewards[index])
+    num_env = obses.shape[0]
+    for index in range(num_env):
+      self.inputs.append(obses[index])
+      self.targets.append(rewards[index])
 
 
   def update_margin(self, mean_return):
@@ -236,20 +237,20 @@ class RewardModel:
     
 
   def train(self):
+    train_acc = []
     for _ in range(self.n_updates): # update reward
-      if self.teacher_eps_equal > 0: train_acc = self.train_reward(soft=True)
-      else: train_acc = self.train_reward(soft=False)
-      total_acc = np.mean(train_acc)
-      if total_acc > 0.97: break;
-    return total_acc
+      if self.teacher_eps_equal > 0: train_acc.append(self.train_reward(soft=True))
+      else: train_acc.append(self.train_reward(soft=False))
+      if np.mean(train_acc) > 0.97: break;
+    return np.mean(train_acc)
                             
               
-  def save(self, model_dir, step): 
-    [th.save(self.ensemble[member].state_dict(), f'{model_dir}/reward_model_{step}_{member}.pt') 
+  def save(self, model_dir): #, step
+    [th.save(self.ensemble[member].state_dict(), f'{model_dir}/reward_model_{member}.pt') #_{step}
       for member in range(self.ensemble_size)]
     
           
-  def load(self, model_dir, step):
-    [self.ensemble[member].load_state_dict(th.load(f'{model_dir}/reward_model_{step}_{member}.pt'))
+  def load(self, model_dir): #, step
+    [self.ensemble[member].load_state_dict(th.load(f'{model_dir}/reward_model_{member}.pt')) #_{step}
       for member in range(self.ensemble_size)]
     
