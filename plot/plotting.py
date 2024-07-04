@@ -42,19 +42,20 @@ def hp_choices(g):
 
 def traceorder(g):
   if (hp:=hp_choices(g)) is not None: return [i for i,k in enumerate(hp[1]) if k==g[hp[0]]][-1]
-  return [i for i,o in enumerate(['DIRECT', 'GASIL', 'SIL', 'PPO', 'A2C', 'DQN']) if o in g['label']][-1]
+  return [i for i,o in enumerate(['DIRECT', 'GASIL', 'SIL', 'VIME', 'PPO', 'A2C', 'PrefPPO']) if o in g['label']][-1]
 
 
 def color(g, dim=0): 
   """
   40: Orange          GASIL
-  70: Yellow          A2C
-  150: Green          SIL
+  70: Yellow          VIME
+  150: Green          SIL / A2C
   200: Light Blue     DIRECT
   230: Blue           (DQN)
   350: Red            PPO
   """
-  hue = lambda alg: [hue for key,hue in {'DIRECT': 200, 'GASIL': 40, 'SIL': 150, 'PPO': 350, 'A2C': 70, '':200}.items() if key in alg][0]
+  print(g['algorithm'])
+  hue = lambda alg: [hue for key,hue in {'DIRECT': 200, 'GASIL': 40, 'SIL': 150, 'A2C': 150, 'PrefPPO': 230, 'RewPPO': 230, 'PPO': 350, 'VIME': 70, '':200}.items() if key in alg][0]
   if g['algorithm'] in g['label']: val = lambda alg: 80
   else: 
     hp, hps = hp_choices(g)
@@ -199,7 +200,7 @@ def layout(title=None, legend=True, wide=True, x='', y='', inset=False, width=No
   width = width or 600+200*wide+100*legend 
   d,m,l = 'rgb(64, 64, 64)', 'rgba(64, 64, 64, 0.32)', 'rgba(64,64,64,0.04)'
   axis = lambda title: {'gridcolor': m, 'linecolor': d, 'title': title, 'mirror':True, 'ticks':'outside', 'showline':True, 'zeroline': True, 'zerolinecolor': m, 'titlefont': dict(size=24), 'tickfont': dict(size=16)} #'tickmode':'linear' 
-  _legend = {'yanchor':'top', 'y':0.88, 'xanchor':'left', 'x':0.01,'bgcolor':l,'bordercolor':d,'borderwidth':1} 
+  _legend = {'yanchor':'top', 'y':0.96, 'xanchor':'left', 'x':0.01,'bgcolor':l,'bordercolor':d,'borderwidth':1} 
 
   return go.Layout( title=title, showlegend=legend, font=dict(size=20), legend=(_legend if inset else {}),
     margin=dict(l=8, r=8, t=8+(72 * (title is not None)), b=8), width=width, height=400, 
