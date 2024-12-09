@@ -1,5 +1,5 @@
-git+https://github.com/philippaltmann/hyphi-gym.git
-stable_baselines3>=2.0.0
+hyphi_gym
+stable_baselines3==2.3.0
 scipy
 tensorboard
 torch
