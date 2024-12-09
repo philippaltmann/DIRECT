@@ -23,13 +23,12 @@ class EvaluationCallback(BaseCallback):
   # def _on_rollout_end(self) -> None: print(f"Collected rollout in {time.time()-self.start}") # add self.start = time.time() to _start
 
   def _on_rollout_start(self) -> None: # self.start = time.time()
-    if self.writer == None: return 
     # Uncomment for early stopping based on 100-mean training return
     _sor = (self.ep_mean('reward_threshold') if self.stop_on_reward == 'VARY' else self.stop_on_reward)
     r = self.ep_mean('r'); self.model.progress_bar.postfix[0] = r; 
     self.model.progress_bar.update(self.model.num_timesteps-self.s); self.s = self.model.num_timesteps
     if _sor is not None and r >= _sor or not self.model.continue_training: self.model.continue_training = False
-    if self.model.should_eval(): self.evaluate()
+    if self.model.should_eval() and self.writer is not None: self.evaluate()
 
 
   def _on_step(self) -> bool: 
