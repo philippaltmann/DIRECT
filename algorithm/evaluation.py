@@ -55,6 +55,7 @@ class EvaluationCallback(BaseCallback):
     factory = lambda c, t, m, ci: {f"{c}/{t}-mean":{s:m}, f"raw/{c}_{t}-lower":{s:m-ci}, f"raw/{c}_{t}-upper":{s:m+ci}}
     if write_raw: summary.update({f"raw/{category}_{tag}": info for tag, info in infos.items()})
     for tag, data in infos.items():
+      if len(data) == 0: continue
       d = np.array(list(data.values())).flatten(); mean = d.mean(); ci = st.t.ppf((1+confidence)/2, len(d)-1) * st.sem(d)
       if category == None: category,tag = tag.split('/')
       c = self.model._custom_scalars.get(category, {}); t = c.get(tag); update = False
