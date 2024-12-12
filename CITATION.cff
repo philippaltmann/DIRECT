@@ -10,7 +10,7 @@ title: 'Discriminative Reward Co-Training'
 date-released: '2024-06-01'
 doi: 10.1007/s00521-024-10512-8
 preferred-citation:
-  type: article-journal
+  type: article
   authors:
     - given-names: Philipp 
       family-names: Altmann
